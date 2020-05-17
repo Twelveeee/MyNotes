@@ -20,7 +20,7 @@ Linus是芬兰人，赫尔辛基是芬兰的首都，当时他正是赫尔辛基
 **CentOs**
 
 CentOS（Community Enterprise Operating System，中文意思是：社区企业操作系统）是Linux发行版之一，它是来自于Red Hat Enterprise Linux依照开放源代码规定释出的源代码所编译而成。
-由于出自同样的源代码，因此有些要求高度稳定性的服务器以CentOS替代商业版的Red Hat Enterprise Linux使用。两者的 不同，在于CentOS并不包含封闭源代码软件。
+由于出自同样的源代码，因此有些要求高度稳定性的服务器以CentOS替代商业版的Red Hat Enterprise Linux使用。两者的不同，在于CentOS并不包含封闭源代码软件。
 
 
 
@@ -1044,19 +1044,19 @@ root表示能使用sudo命令的用户；
 ## 1.RPM软件包管理
 
 **1.1 RPM软件包介绍**
-RPM是RPM Package Manager（RPM软件包管理器）的缩写，这一文件格式名称虽然打 上了RedHat的标志，但是其原始设计理念是开放式的，现在包括OpenLinux、SuSE以及 Turbo Linux等Linux的分发版本都有采用，可以算是公认的行业标准了。 
+RPM是RPM Package Manager（RPM软件包管理器）的缩写，这一文件格式名称虽然打上了RedHat的标志，但是其原始设计理念是开放式的，现在包括OpenLinux、SuSE以及 Turbo Linux等Linux的分发版本都有采用，可以算是公认的行业标准了。
 RPM软件包的文件名：
 `bash-3.0-19.2.i386.rpm`
 名称-版本号-运行硬件平台-扩展名
 
 RPM命令可以完成对软件包的所有管理功能：
- 查询已安装在Linux系统中的RPM软件包的信息
+查询已安装在Linux系统中的RPM软件包的信息
 查询RPM软件包安装文件的信息
 安装RPM软件包到当前Linux系统
 从当前Linux系统中卸载已安装的RPM软件包
 升级当前Linux系统中已安装的RPM软件包
 
-**1.2 RPM软件包查询** 
+**1.2 RPM软件包查询**
 
 | 命令              | 功能                                 |
 | ----------------- | ------------------------------------ |
@@ -1069,12 +1069,12 @@ RPM命令可以完成对软件包的所有管理功能：
 | rpm -qpl 包文件名 | 查询指定RPM包中包含的文件列表        |
 
 **挂载：**
-在Linux操作系统中，安装光盘中存在许多软件包，但是如何查看光盘中的内容呢？ Linux中有一个特殊的行为叫做挂载， 挂载是指将一个设备(通常是存储设备)挂接到一个 已存在的目录上。 我们要访问存储设备中的文件，必须将文件所在的分区挂载到一个已 存在的目录上， 然后通过访问这个目录来访问存储设备。
+在Linux操作系统中，安装光盘中存在许多软件包，但是如何查看光盘中的内容呢？ Linux中有一个特殊的行为叫做挂载，挂载是指将一个设备(通常是存储设备)挂接到一个已存在的目录上。我们要访问存储设备中的文件，必须将文件所在的分区挂载到一个已存在的目录上，然后通过访问这个目录来访问存储设备。
 挂载光盘使用mount命令:
 `mount -t 光盘内容类型 设备文件路径 挂载点路径`
-` # mount -t iso9660 /dev/cdrom /media` 
-注意：挂载完成后可以使用mount命令查看挂载情况 
-`umount /dev/cdrom` 或者` umount 挂载点路径 `可以卸载光盘
+`# mount -t iso9660 /dev/cdrom /media`
+注意：挂载完成后可以使用mount命令查看挂载情况
+`umount /dev/cdrom`或者` umount 挂载点路径`可以卸载光盘
 
 **查询系统中已安装的软件包信息:**
 查询vim软件包有没有安装`$ rpm –qa|grep vim `
@@ -1085,12 +1085,12 @@ rpm命令配合“-i”选项用于安装RPM软件包
 `rpm -i bind-9.8.2-0.17.rc1.el6_4.6.i686.rpm`
 命令名|-i选项表示安装软件包|要安装的软件包文件名作为命令参数
 rpm命令配合“-ivh”在安装RPM软件包时会显示更多的提示信息：
- -i （install） 安装
- -v （verbose） 显示详细信息 
- -h (hash) 显示进度
+-i （install）安装
+-v （verbose）显示详细信息
+-h (hash)显示进度
 
 **依赖：**
-RPM软件包在进行安装的时候容易出问题 ，主要是包与包之间有依赖关系。依赖包的产 生，是因为linux软件采用共享资源库的方式， 可以减少软件编程的开发量，类似于windows 下的各种库，高手可自行使用相关命令或方式 查看软件包依赖。
+RPM软件包在进行安装的时候容易出问题，主要是包与包之间有依赖关系。依赖包的产生，是因为linux软件采用共享资源库的方式，可以减少软件编程的开发量，类似于windows 下的各种库，高手可自行使用相关命令或方式查看软件包依赖。
 
 **1.4 RPM软件包卸载与升级**
 rpm命令配合“-e”选项用于卸载RPM软件包
@@ -1106,79 +1106,79 @@ rpm命令配合“-U”选项用于升级RPM软件包
 ## 2.YUM软件仓库
 
 **2.1 YUM软件仓库介绍**
-Yum是一个shell前端软件包管理器，基于RPM包管理，能够从指定的服务器自动下载 RPM包并安装，可以自动处理依赖关系，并且一次安装所有依赖的软件包。要成功的使用YUM 工具安装更新软件或系统，就需要有一个包含各种rpm软件包的repository（软件仓库），这 个软件仓库我们习惯称为yum源。
- 网络上有大量的yum源，但由于受到网络环境的限制，导致软件安装耗时过长甚至失败。 因此我们在优化系统时，都会更换国内的源。本地YUM源服务器最大优点是局域网的快速网络 连接和稳定性。有了局域网中的YUM源服务器，即便在Internet连接中断的情况下，也不会影 响其他YUM客户端的软件安装和升级
+Yum是一个shell前端软件包管理器，基于RPM包管理，能够从指定的服务器自动下载 RPM包并安装，可以自动处理依赖关系，并且一次安装所有依赖的软件包。要成功的使用YUM 工具安装更新软件或系统，就需要有一个包含各种rpm软件包的repository（软件仓库），这个软件仓库我们习惯称为yum源。
+网络上有大量的yum源，但由于受到网络环境的限制，导致软件安装耗时过长甚至失败。因此我们在优化系统时，都会更换国内的源。本地YUM源服务器最大优点是局域网的快速网络连接和稳定性。有了局域网中的YUM源服务器，即便在Internet连接中断的情况下，也不会影响其他YUM客户端的软件安装和升级
 
 **2.2 配置YUM软件仓库**
 配置本地YUM软件仓库，主要通过光盘镜像中的软件包作为本地的源，主要步骤有：
- 步骤一：挂载光盘镜像 
-步骤二：配置本地YUM软件仓库 
+步骤一：挂载光盘镜像
+步骤二：配置本地YUM软件仓库
 步骤三：测试YUM软件仓库
 
 步骤一：挂载光盘镜像
 挂载光盘使用mount命令
-` mount -t 光盘内容类型 设备文件路径 挂载点路径 `
+` mount -t 光盘内容类型 设备文件路径 挂载点路径`
 `# mount -t iso9660 /dev/cdrom /media`
 
 步骤二：配置本地YUM软件仓库
- 在/etc/yum.repos.d/目录中存放的是yum的配置文件，可以在此目录下使用vi创建一个配 置文件设置本地YUM软件仓库。 
+在/etc/yum.repos.d/目录中存放的是yum的配置文件，可以在此目录下使用vi创建一个配置文件设置本地YUM软件仓库。
 仓库配置文件:/etc/yum.repos.d/name.repo
- [name]：仓库id name ：仓库名字 
-baseurl： 为仓库的地址，本地文件file://,ftp文件地址ftp://
- gpgcheck：是否使用密钥验证 
-enable：是否开启当前仓库 
+[name]：仓库id name ：仓库名字
+baseurl：为仓库的地址，本地文件file://,ftp文件地址ftp://
+ gpgcheck：是否使用密钥验证
+enable：是否开启当前仓库
 gpgkey：公钥地址，若是需要检查完整性的话可以添加密钥地址
 
 步骤三：测试YUM软件仓库
-yum repolist : 显示软件仓库列表 
+yum repolist : 显示软件仓库列表
 yum list :显示软件包列表
 
 **2.3 YUM软件仓库的使用**
-Yum软件仓库的使用主要依靠yum相关命令，使用yum命令可以进行软件包的安装和管 理。
-安装：yum install package1 package2... 
+Yum软件仓库的使用主要依靠yum相关命令，使用yum命令可以进行软件包的安装和管理。
+安装：yum install package1 package2...
 重新安装：yum reinstall package 
 卸载：yum remove package 
 更新：yum update package 
 已安装的软件包：yum list installed 
 查看软件包信息：yum info 软件包名称
 例子：
-安装zip软件包 ：`yum –y install zip`（-y可以自动回答yes） 
+安装zip软件包：`yum –y install zip`（-y可以自动回答yes）
 卸载zip软件包：` Yum remove zip `
-在已安装的软件包中查找vim相关软件包 ：`Yum list installed |grep “vim”`
+在已安装的软件包中查找vim相关软件包：`Yum list installed |grep “vim”`
 
 ## 3.服务和运行目标管理
 
 **3.1 Linux的启动过程**
-Linux操作系统的开机过程是这样的，即从BIOS开始，然后进入Boot Loader，再加载系统 内核，然后内核进行初始化，最后启动初始化进程。初始化进程作为Linux系统的第一个进 程，它需要完成Linux系统中相关的初始化工作，为用户提供合适的工作环境。Centos 7系 统已经替换掉了熟悉的初始化进程服务System V init，正式采用全新的systemd初始化进程 服务。
+Linux操作系统的开机过程是这样的，即从BIOS开始，然后进入Boot Loader，再加载系统内核，然后内核进行初始化，最后启动初始化进程。初始化进程作为Linux系统的第一个进程，它需要完成Linux系统中相关的初始化工作，为用户提供合适的工作环境。Centos 7系统已经替换掉了熟悉的初始化进程服务System V init，正式采用全新的systemd初始化进程服务。
 Systemd是一个系统管理守护进程、工具和库的集合，用于取代System V初始进程。 Systemd的功能是用于集中管理和配置类UNIX系统。
 
-1.uefi或BIOS初始化，开始post开机自检 
-2.加载mbr到内存 
-3.GRUB阶段 
-4.加载内核和inintamfs模块 
-5.内核开始初始化，使用systemd来代替centos6以前的init程序 
+1.uefi或BIOS初始化，开始post开机自检
+2.加载mbr到内存
+3.GRUB阶段
+4.加载内核和inintamfs模块
+5.内核开始初始化，使用systemd来代替centos6以前的init程序
 (1)执行initrd.target 
 (2)从initramfs根文件系统切换到磁盘根目录
- (3)systemd执行默认target配置
- (4)systemd执行sysinit.target
- (5)systemd启动multi-user.target下的本机与服务器服务
- (6)systemd执行multi-user.target下的/etc/rc.d/rc.local
-6.Systemd执行multi-user.target下的getty.target及登录服务 
+(3)systemd执行默认target配置
+(4)systemd执行sysinit.target
+(5)systemd启动multi-user.target下的本机与服务器服务
+(6)systemd执行multi-user.target下的/etc/rc.d/rc.local
+6.Systemd执行multi-user.target下的getty.target及登录服务
 7.systemd执行graphical需要的服务
 
-通过pstree命令可以查看进程树，能够看到现在的centos 7版本的Linux是由systemd进行启动 管理的。
+通过pstree命令可以查看进程树，能够看到现在的centos 7版本的Linux是由systemd进行启动管理的。
 
 **3.2 Linux的运行目标**
-Linux功能强大，为了适应不同用户对服务的启动配置要求，早期版本的Linux提供了运行 级别，centos 7版本加入了systemd进行启动的管理，**systemd 用目标（target）替代了运行 级别的概念**，提供了更大的灵活性，如您可以继承一个已有的目标，并添加其它服务，来创建 自己的目标。 
+Linux功能强大，为了适应不同用户对服务的启动配置要求，早期版本的Linux提供了运行级别，centos 7版本加入了systemd进行启动的管理，**systemd 用目标（target）替代了运行级别的概念**，提供了更大的灵活性，如您可以继承一个已有的目标，并添加其它服务，来创建自己的目标。
 
 | Sysvinit 运行级别 | Systemd 目标          | 备注                                                         |
 | ----------------- | --------------------- | ------------------------------------------------------------ |
 | 0                 | poweroff.target       | 关闭系统                                                     |
 | 1                 | rescue.target         | 单用户模式                                                   |
-| 2                 | multi-user.target     | 用户定义/域特定运行级别。默认 等同于 3                       |
-| **3**             | **multi-user.target** | **多用户，非图形化。用户可以通 过多个控制台或网络登录**      |
-| 4                 | multi-user.target     | 用户定义/域特定运行级别。默认 等同于 3                       |
-| **5**             | **graphical.target**  | **多用户，图形化。通常为所有运 行级别 3 的服务外加图形化登录** |
+| 2                 | multi-user.target     | 用户定义/域特定运行级别。默认等同于3                         |
+| **3**             | **multi-user.target** | **多用户，非图形化。用户可以通过多个控制台或网络登录**       |
+| 4                 | multi-user.target     | 用户定义/域特定运行级别。默认等同于3                         |
+| **5**             | **graphical.target**  | **多用户，图形化。通常为所有运行级别3 的服务外加图形化登录** |
 | 6                 | reboot.targe          | 重启                                                         |
 
 在centOS7上如何查看运行的目标呢，使用命令systemctl get-default 可以查看。
@@ -1189,19 +1189,19 @@ runlevel也可以用来查看当前的运行级别。
 针对Linux的运行的目标，我们可以进行设置，设置时候用到了systemctl命令。
 **临时修改运行级别**：从multi-user.target（即字符界面）改为graphical.target(即图形界面)
 `systemctl isolate runlevel5.target`
-**修改默认的运行级别**：systemd 使用链接来指向默认的运行级别。在创建新的链接前，你可以通过下面命令删除存在 的链接，然后创建一个新的链接。
+**修改默认的运行级别**：systemd 使用链接来指向默认的运行级别。在创建新的链接前，你可以通过下面命令删除存在的链接，然后创建一个新的链接。
 `rm /etc/systemd/system/default.target `
-切换到运行级 3 ：`ln -sf /lib/systemd/system/multi-user.target etc/systemd/system/default.target`
+切换到运行级3 ：`ln -sf /lib/systemd/system/multi-user.target etc/systemd/system/default.target`
 
 **3.4 Linux的服务**
-**服务：是指执行指定系统功能的程序、例程或进程，**以便支持其他程序，尤其是底层(接近硬 件)程序。例如：打印服务，ftp服务，http服务。
+**服务：是指执行指定系统功能的程序、例程或进程，**以便支持其他程序，尤其是底层(接近硬件)程序。例如：打印服务，ftp服务，http服务。
 服务就是一个程序（正在执行的程序），是一个用来等待并处理请求的程序。
 所有被激活的服务可以用下面这条命令来查看。
 `systemctl list-units -t service`
 查看所有启动文件：`systemctl list-unit-files`
 
 **3.5 管理Linux服务**
-Linux服务的管理包括控制服务的启动、查询、停止。 以httpd.service (web服务)为例，说明服务的管理方法。
+Linux服务的管理包括控制服务的启动、查询、停止。以httpd.service (web服务)为例，说明服务的管理方法。
 
 | 任务                   | 指令                            |
 | ---------------------- | ------------------------------- |
@@ -1212,6 +1212,144 @@ Linux服务的管理包括控制服务的启动、查询、停止。 以httpd.se
 | 停止某服务             | systemctl stop httpd.service    |
 | 重启某服务             | systemctl restart httpd.service |
 
-4.Linux进程管理
+## 4.Linux进程管理
 
-5.Linux计划任务管理
+**4.1 什么是进程**
+进程：开始执行但是还没有结束的程序的实例
+程序：包含可执行代码的文件
+进程与程序的关系:
+进程由程序产生，是一个运行着的、要占系统资源的程序
+进程不等于程序
+进程与程序是多对一
+进程是占用（消耗）系统资源的
+
+**4.2 查看进程**
+显示进程信息:ps命令显示某时刻系统进程的状态信息
+显示进程状态:top命令以全屏幕的方式显示系统中的进程状态，并定时刷新显示的内容,可以通过top命令查看系统中进程的动态变化.
+显示系统进程树:pstree命令以树的形式显示系统进程间的父子关系
+
+**ps命令**：显示某时刻系统进程的状态信息
+常用选项：
+a 显示现行终端机下的所有进程，包括其他用户的进程。
+u 　以用户为主的格式来显示进程状况。
+x 　显示所有进程，不以终端机来区分。
+
+`USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND`
+USER: 进程拥有者
+PID: pid
+%CPU:占用的cpu使用率
+VSZ:占用的内存使用率
+RSS:占用的虚拟内存大小
+TTY:是否为登入者执行的程序
+STAT:程序的状态:
+R:正在执行中，S：睡眠，T：正在检测或者停止，Z：死亡程序，< 高优先级，N 低优先级，L 有些页被锁进内存，s 包含子进程，+位于后台的进程组；l 多线程，克隆线程
+START:程序开始时间
+TIME:程序运行的时间
+COMMAND：所执行的指令。
+
+**top命令**：动态显示进程状态
+top命令以全屏幕的方式显示系统中的进程状态，并定时刷新显示的内容
+第一行：显示系统已启动的时间、目前上线人数、系统整体的负载(load)。比较需要注意的是系统的负载，三个数据分别代表1,5,10 分钟的平均负载。一般来说，这个负载值应该不太可能超过1 才对，除非您的系统很忙碌。如果持续高于5 的话，那么.....仔细的看看到底是那个程序在影响整体系统吧！
+第二行：显示的是目前的观察程序数量，
+第三行：显示的是 CPU 的整体负载，每个项目可使用? 查阅。需要观察的是 id (idle)的数值，一般来说，他应该要接近100%才好，表示系统很少资源被使用啊！
+第四行与第五行：表示目前的物理内存与虚拟内存(Mem/Swap)的使用情况。
+第六行：这个是当在 top 程序当中输入指令时，显示状态的地方。
+
+`PID USER PR NI VIRT RES SHR S %CPU SHR S %CPU %MEN TIME+ COMMAND`
+PID ：每个 process 的 ID 啦！
+USER：该 process 所属的使用者；
+PR ：Priority 的简写，程序的优先执行顺序，越小越早被执行；
+NI ：Nice 的简写，与 Priority 有关，也是越小越早被执行；
+%CPU：CPU 的使用率；
+%MEM：内存的使用率；
+TIME+：CPU 使用时间的累加；
+SHR:共享内存大小，单位kb
+RES：进程使用的、未被换出的物理内存大小，单位kb
+
+**pstree命令**：显示系统进程树
+pstree命令以树的形式显示系统进程间的父子关系
+需要安装psmisc软件包
+
+**4.3 进程的启动方式**
+手工启动:
+由用户输入命令，直接执行一个程序
+前台启动是普通的命令执行方式
+后台启动需要在命令尾加入“&”
+`# cp /dev/cdrom mycd.iso &`
+调度启动
+使用at命令设置某个命令在某个时间，一次性的在系统中执行
+crontab命令设置在系统中需要周期性（如每天、每周等）完成的任务
+
+**4.4 进程的控制**
+把当前终端中运行的进程调入后台:使用“Ctrl+z”组合键可以将当前终端的进程调入后台并停止执行
+查看后台的进程：
+jobs命令用于查看当前终端中后台的所有进程的状态
+`$ jobs`
+`[1]+ Stopped top`
+将后台的进程恢复到前台运行：
+fg命令用于将后台的进程调入终端前台执行
+`$ fg 1`
+
+**kill命令**：终止正在执行的命令
+使用“Ctrl + c”组合键可以强制结束当前终端中运行的命令
+使用kill命令终止进程
+`$ kill -9 2501`
+命令名|-9命令选项表示强制终止进程|命令参数，需要终止运行的进程的进
+程号（可通过ps命令查询到）
+
+## 5.Linux计划任务管理
+
+**5.1 cron服务介绍**
+cron是一个可以用来根据时间、日期、月份、星期的组合来调度对周期性任务执行的守护进程。
+利用cron所提供的功能，可以将需要周期性重复执行的任务设置为cron任务，并且设置为在主机较空闲的时间（如夜间）自动完成。
+
+**5.2 管理cron服务**
+查询crond服务状态:`# systemctl status crond.service`
+停止crond服务`# systemctl stop crond.service`
+启动crond服务`# systemctl start crond.service `
+重新启动crond服务`# systemctl restart crond.service `
+查看crond服务的开机启动状态`# systemctl list-units -t service |grep “crond”`
+
+**5.3 配置cron服务**
+cron服务的配置主要使用crontab命令。cron服务在配置的时候是基于当前用户的，不同的用户cron任务的存储文件也不同。
+查看用户的cron任务: `# crontab -l `
+调用文本编辑器对cron任务进行编辑: `# crontab -e `
+编辑用户的cron任务:`# crontab -u user名称 - e `
+删除用户现有的cron任务:`# crontab -r`
+
+`50 3 2 1 * run_yearly_cmd`
+minute|hour|day|month|dayofweek|command
+
+| 字段      | 说明                                             |
+| --------- | ------------------------------------------------ |
+| minute    | 分钟，取值为从0到59之间的任意整数                |
+| hour      | 小时，取值为从0到23之间的任意整数                |
+| day       | 日期，取值为从1到31之间的任意整数                |
+| month     | 月份，取值为从1到12之间的任意整数                |
+| dayofweek | 星期，取值为从0到7之间的任意整数，0或7代表星期日 |
+| command   | 要执行的命令或程序脚本                           |
+
+时间的设置上还有一些特殊的符号能够起到灵活的效果
+`*`代表所有的取值范围内的数字
+`/`代表每的意思,`*/5`表示每5个单位
+`-`代表从某个数字到某个数字
+`,`分开几个离散的数字
+
+举例：
+每两个小时输出“have a break now”到test.txt文本中
+`0 */2 * * * echo "Have a break now." >> /tmp/test.txt `
+晚上11点，早上八点 输出“have a good dream :）”到命令行终端上
+`0 23，8 * * * echo "Have a good dream:)" >> /dev/tty1`
+每个月的4号和每个礼拜的礼拜一到礼拜三的早上11点执行某段命令
+`0 11 4 * 1-3 command line`
+
+**保存cron任务的文件**
+所有用户的cron任务（使用crontab命令创建的任务）都被保存在目录“/var/spool/cron/”中的文件中，文件的名称与用户名相同。
+例如root用户的cron任务列表文件的名称是“/var/spool/cron/root
+
+**5.4 cron服务的配置文件和目录**
+
+系统任务配置文件
+“/etc/crontab”文件中设置的是Linux系统维护所需的任务，一般不需要人为去修改任务脚本目录
+在“/etc”目录中有名为cron.hourly 、cron.daily 、cron.weekly 和cron.monthly 的目录,目录中存放的是需要定期执行的系统任务脚本
+例如，“/etc/cron.daily/”目录中存放的是每日执行一次的系统任务脚本
