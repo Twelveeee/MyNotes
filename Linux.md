@@ -1038,3 +1038,180 @@ root表示能使用sudo命令的用户；
 -u用户名或UID值以指定的用户身份执行命令
 
 第三步：使用sudo命令来执行特殊的权限对于普通用户无权查看的shadow文件，利用sudu命令就可以获得权限进行查看。
+
+# 5.Linux系统的日常运维
+
+## 1.RPM软件包管理
+
+**1.1 RPM软件包介绍**
+RPM是RPM Package Manager（RPM软件包管理器）的缩写，这一文件格式名称虽然打 上了RedHat的标志，但是其原始设计理念是开放式的，现在包括OpenLinux、SuSE以及 Turbo Linux等Linux的分发版本都有采用，可以算是公认的行业标准了。 
+RPM软件包的文件名：
+`bash-3.0-19.2.i386.rpm`
+名称-版本号-运行硬件平台-扩展名
+
+RPM命令可以完成对软件包的所有管理功能：
+ 查询已安装在Linux系统中的RPM软件包的信息
+查询RPM软件包安装文件的信息
+安装RPM软件包到当前Linux系统
+从当前Linux系统中卸载已安装的RPM软件包
+升级当前Linux系统中已安装的RPM软件包
+
+**1.2 RPM软件包查询** 
+
+| 命令              | 功能                                 |
+| ----------------- | ------------------------------------ |
+| rpm -qa           | 查询Linux系统中的所有软件包          |
+| rpm -q 包名称     | 查询指定名称的软件包是否安装         |
+| rpm -qi 包名称    | 查询指定名称软件包的详细信息         |
+| rpm -ql 包名称    | 查询指定名称软件包中所包括的文件列表 |
+| rpm -qf 文件名称  | 查询指定文件所属的软件包             |
+| rpm -qpi 包文件名 | 查询指定RPM包文件的详细信息          |
+| rpm -qpl 包文件名 | 查询指定RPM包中包含的文件列表        |
+
+**挂载：**
+在Linux操作系统中，安装光盘中存在许多软件包，但是如何查看光盘中的内容呢？ Linux中有一个特殊的行为叫做挂载， 挂载是指将一个设备(通常是存储设备)挂接到一个 已存在的目录上。 我们要访问存储设备中的文件，必须将文件所在的分区挂载到一个已 存在的目录上， 然后通过访问这个目录来访问存储设备。
+挂载光盘使用mount命令:
+`mount -t 光盘内容类型 设备文件路径 挂载点路径`
+` # mount -t iso9660 /dev/cdrom /media` 
+注意：挂载完成后可以使用mount命令查看挂载情况 
+`umount /dev/cdrom` 或者` umount 挂载点路径 `可以卸载光盘
+
+**查询系统中已安装的软件包信息:**
+查询vim软件包有没有安装`$ rpm –qa|grep vim `
+查询所有安装的软件包中以htt开头的软件包:`$ rpm –qa|grep ‘^htt’`
+
+**1.3 RPM软件包安装**
+rpm命令配合“-i”选项用于安装RPM软件包
+`rpm -i bind-9.8.2-0.17.rc1.el6_4.6.i686.rpm`
+命令名|-i选项表示安装软件包|要安装的软件包文件名作为命令参数
+rpm命令配合“-ivh”在安装RPM软件包时会显示更多的提示信息：
+ -i （install） 安装
+ -v （verbose） 显示详细信息 
+ -h (hash) 显示进度
+
+**依赖：**
+RPM软件包在进行安装的时候容易出问题 ，主要是包与包之间有依赖关系。依赖包的产 生，是因为linux软件采用共享资源库的方式， 可以减少软件编程的开发量，类似于windows 下的各种库，高手可自行使用相关命令或方式 查看软件包依赖。
+
+**1.4 RPM软件包卸载与升级**
+rpm命令配合“-e”选项用于卸载RPM软件包
+`rpm -e bind-chroot`
+命令名|-e选项表示卸载软件包|要卸载的软件包名称作为命令参数
+rpm软件包的卸载同样存在依赖关系,被依赖的软件包应该最后被卸载
+
+rpm命令配合“-U”选项用于升级RPM软件包
+`rpm -U vim-enhanced-7.4.160-2.el7.i386.rpm`
+命令名|-U选项表示升级软件包|升级的软件包文件名称作为命令参数
+当系统中未安装需要升级的软件包时，升级的过程等同于安装软件包的过程.
+
+## 2.YUM软件仓库
+
+**2.1 YUM软件仓库介绍**
+Yum是一个shell前端软件包管理器，基于RPM包管理，能够从指定的服务器自动下载 RPM包并安装，可以自动处理依赖关系，并且一次安装所有依赖的软件包。要成功的使用YUM 工具安装更新软件或系统，就需要有一个包含各种rpm软件包的repository（软件仓库），这 个软件仓库我们习惯称为yum源。
+ 网络上有大量的yum源，但由于受到网络环境的限制，导致软件安装耗时过长甚至失败。 因此我们在优化系统时，都会更换国内的源。本地YUM源服务器最大优点是局域网的快速网络 连接和稳定性。有了局域网中的YUM源服务器，即便在Internet连接中断的情况下，也不会影 响其他YUM客户端的软件安装和升级
+
+**2.2 配置YUM软件仓库**
+配置本地YUM软件仓库，主要通过光盘镜像中的软件包作为本地的源，主要步骤有：
+ 步骤一：挂载光盘镜像 
+步骤二：配置本地YUM软件仓库 
+步骤三：测试YUM软件仓库
+
+步骤一：挂载光盘镜像
+挂载光盘使用mount命令
+` mount -t 光盘内容类型 设备文件路径 挂载点路径 `
+`# mount -t iso9660 /dev/cdrom /media`
+
+步骤二：配置本地YUM软件仓库
+ 在/etc/yum.repos.d/目录中存放的是yum的配置文件，可以在此目录下使用vi创建一个配 置文件设置本地YUM软件仓库。 
+仓库配置文件:/etc/yum.repos.d/name.repo
+ [name]：仓库id name ：仓库名字 
+baseurl： 为仓库的地址，本地文件file://,ftp文件地址ftp://
+ gpgcheck：是否使用密钥验证 
+enable：是否开启当前仓库 
+gpgkey：公钥地址，若是需要检查完整性的话可以添加密钥地址
+
+步骤三：测试YUM软件仓库
+yum repolist : 显示软件仓库列表 
+yum list :显示软件包列表
+
+**2.3 YUM软件仓库的使用**
+Yum软件仓库的使用主要依靠yum相关命令，使用yum命令可以进行软件包的安装和管 理。
+安装：yum install package1 package2... 
+重新安装：yum reinstall package 
+卸载：yum remove package 
+更新：yum update package 
+已安装的软件包：yum list installed 
+查看软件包信息：yum info 软件包名称
+例子：
+安装zip软件包 ：`yum –y install zip`（-y可以自动回答yes） 
+卸载zip软件包：` Yum remove zip `
+在已安装的软件包中查找vim相关软件包 ：`Yum list installed |grep “vim”`
+
+## 3.服务和运行目标管理
+
+**3.1 Linux的启动过程**
+Linux操作系统的开机过程是这样的，即从BIOS开始，然后进入Boot Loader，再加载系统 内核，然后内核进行初始化，最后启动初始化进程。初始化进程作为Linux系统的第一个进 程，它需要完成Linux系统中相关的初始化工作，为用户提供合适的工作环境。Centos 7系 统已经替换掉了熟悉的初始化进程服务System V init，正式采用全新的systemd初始化进程 服务。
+Systemd是一个系统管理守护进程、工具和库的集合，用于取代System V初始进程。 Systemd的功能是用于集中管理和配置类UNIX系统。
+
+1.uefi或BIOS初始化，开始post开机自检 
+2.加载mbr到内存 
+3.GRUB阶段 
+4.加载内核和inintamfs模块 
+5.内核开始初始化，使用systemd来代替centos6以前的init程序 
+(1)执行initrd.target 
+(2)从initramfs根文件系统切换到磁盘根目录
+ (3)systemd执行默认target配置
+ (4)systemd执行sysinit.target
+ (5)systemd启动multi-user.target下的本机与服务器服务
+ (6)systemd执行multi-user.target下的/etc/rc.d/rc.local
+6.Systemd执行multi-user.target下的getty.target及登录服务 
+7.systemd执行graphical需要的服务
+
+通过pstree命令可以查看进程树，能够看到现在的centos 7版本的Linux是由systemd进行启动 管理的。
+
+**3.2 Linux的运行目标**
+Linux功能强大，为了适应不同用户对服务的启动配置要求，早期版本的Linux提供了运行 级别，centos 7版本加入了systemd进行启动的管理，**systemd 用目标（target）替代了运行 级别的概念**，提供了更大的灵活性，如您可以继承一个已有的目标，并添加其它服务，来创建 自己的目标。 
+
+| Sysvinit 运行级别 | Systemd 目标          | 备注                                                         |
+| ----------------- | --------------------- | ------------------------------------------------------------ |
+| 0                 | poweroff.target       | 关闭系统                                                     |
+| 1                 | rescue.target         | 单用户模式                                                   |
+| 2                 | multi-user.target     | 用户定义/域特定运行级别。默认 等同于 3                       |
+| **3**             | **multi-user.target** | **多用户，非图形化。用户可以通 过多个控制台或网络登录**      |
+| 4                 | multi-user.target     | 用户定义/域特定运行级别。默认 等同于 3                       |
+| **5**             | **graphical.target**  | **多用户，图形化。通常为所有运 行级别 3 的服务外加图形化登录** |
+| 6                 | reboot.targe          | 重启                                                         |
+
+在centOS7上如何查看运行的目标呢，使用命令systemctl get-default 可以查看。
+Systemctl是一个systemd工具，主要负责控制systemd系统和服务管理器。
+runlevel也可以用来查看当前的运行级别。
+
+**3.3 修改Linux的运行目标**
+针对Linux的运行的目标，我们可以进行设置，设置时候用到了systemctl命令。
+**临时修改运行级别**：从multi-user.target（即字符界面）改为graphical.target(即图形界面)
+`systemctl isolate runlevel5.target`
+**修改默认的运行级别**：systemd 使用链接来指向默认的运行级别。在创建新的链接前，你可以通过下面命令删除存在 的链接，然后创建一个新的链接。
+`rm /etc/systemd/system/default.target `
+切换到运行级 3 ：`ln -sf /lib/systemd/system/multi-user.target etc/systemd/system/default.target`
+
+**3.4 Linux的服务**
+**服务：是指执行指定系统功能的程序、例程或进程，**以便支持其他程序，尤其是底层(接近硬 件)程序。例如：打印服务，ftp服务，http服务。
+服务就是一个程序（正在执行的程序），是一个用来等待并处理请求的程序。
+所有被激活的服务可以用下面这条命令来查看。
+`systemctl list-units -t service`
+查看所有启动文件：`systemctl list-unit-files`
+
+**3.5 管理Linux服务**
+Linux服务的管理包括控制服务的启动、查询、停止。 以httpd.service (web服务)为例，说明服务的管理方法。
+
+| 任务                   | 指令                            |
+| ---------------------- | ------------------------------- |
+| 使某服务开机自动启动   | systemctl enable httpd.service  |
+| 使某服务开机不自动启动 | systemctl disable httpd.service |
+| 检查服务状态           | systemctl status httpd.service  |
+| 启动某服务             | systemctl start httpd.service   |
+| 停止某服务             | systemctl stop httpd.service    |
+| 重启某服务             | systemctl restart httpd.service |
+
+4.Linux进程管理
+
+5.Linux计划任务管理
