@@ -1353,3 +1353,251 @@ minute|hour|day|month|dayofweek|command
 “/etc/crontab”文件中设置的是Linux系统维护所需的任务，一般不需要人为去修改任务脚本目录
 在“/etc”目录中有名为cron.hourly 、cron.daily 、cron.weekly 和cron.monthly 的目录,目录中存放的是需要定期执行的系统任务脚本
 例如，“/etc/cron.daily/”目录中存放的是每日执行一次的系统任务脚本
+
+# 6.Linux系统网络配置
+
+## 1.网络协议介绍
+
+**1.1 网络协议的概念**
+网络协议是网络上所有设备(网络服务器、计算机及交换机、路由器、防火墙等)之间通信规则的集合，它规定了通信时信息必须采用的格式和这些格式的意义。大多数网络都采用分层的体系结构，每一层都建立在它的下层之上，向它的上一层提供一定的服务，而把如何实现这一服务的细节对上一层加以屏蔽。
+
+**1.2 TCP/IP协议**
+TCP/IP字面上代表了两个协议：TCP（传输控制协议）和IP（网际协议）。1983年1月1 日，在因特网的前身（ARPA网）中，TCP/IP协议取代了旧的网络控制协议（NCP， Network Control Protocol），从而成为今天的互联网的基石。
+![](img/dataStructure/20200521194119.png)
+
+**1.3 常见的网络应用协议**
+**HTTP协议**
+**超文本传输协议**（HTTP，HyperText Transfer Protocol)：是互联网上应用最为广泛的一种网络协议。所有的WWW文件都必须遵守这个标准。设计HTTP最初的目的是为了提供一种发布和接收HTML页面的方法。1960年美国人 Ted Nelson构思了一种通过计算机处理文本信息的方法，并称之为超文本（hypertext）,这成为了HTTP超文本传输协议标准架构的发展根基。
+**DNS协议**
+ DNS是**域名系统**(DomainNameSystem)的缩写，该系统用于命名组织到域层次结构中的计算机和网络服务。域名是由圆点分开一串单词或缩写组成的，每一个域名都对应一个惟一的IP地址，在 Internet上域名与IP地址之间是一一对应的，DNS就是进行域名解析的服务器。 DNS命名用于Internet等TCP/IP网络中，通过用户友好的名称查找计算机和服务。DNS 是因特网的一项核心服务,它作为可以将域名和IP地址相互映射的一个分布式数据库。
+**FTP协议**
+ FTP(File Transfer Protocol，**文件传输协议**)是 TCP/IP 协议组中的协议之一。 FTP协议包括两个组成部分，其一为FTP服务器，其二为FTP客户端。其中FTP服务器用来存储文件，用户可以使用FTP客户端通过FTP协议访问位于FTP服务器上的资源。在开发网站的时候，通常利用FTP协议把网页或程序传到Web服务器上。此外，由于FTP 传输效率非常高，在网络上传输大的文件时，一般也采用该协议。
+**Telnet协议**
+**Telnet协议是TCP/IP协议族中的一员，是Internet远程登陆服务的标准协议和主要方式。**它为用户提供了在本地计算机上完成远程主机工作的能力。在终端使用者的电脑上使用telnet程序，用它连接到服务器。终端使用者可以在telnet程序中输入命令，这些命令会在服务器上运行，就像直接在服务器的控制台上输入一样。可以在本地就能控制服务器。要开始一个telnet会话，必须输入用户名和密码来登录服务器。 Telnet是常用的远程控制Web服务器的方法。
+
+## 2.查看Linux网络配置
+
+**2.1 查看网络接口信息**
+在Centos7中，要查看网络接口的信息，不再使用ifconfig命令，而是使用了ip命令。 ip命令用来显示或操纵Linux主机的路由、网络设备、策略路由和隧道，是Linux下较新的功能强大的网络配置工具。
+
+ip是iproute2软件包里面的一个强大的网络配置工具，它能够替代一些传统的网络管理工具。
+命令格式：
+`ip [OPTIONS] OBJECT [COMMAND [ARGUMENTS]]`
+常用实例：
+`ip link show`			显示设备属性
+`ip address show`	显示协议地址
+
+centos7中提供了强大的图形化配置工具，里面有两个命令：nmcli 和nmtui 。
+nmcli：NetworkManageCommandLine Interface 
+nmtui：NetworkManageTextUser Iterface
+**1．通过 nmcli d命令来查看网卡**
+**2．通过 nmtui命令可以配置网络**
+**3.ip link show命令**
+显示出所有可用网络接口的列表（无论接口是否激活）
+`ip link show up`：可以查看激活的接口信息。
+`ip -s link show`网络接口名称：可以查看更加详细的接口信息。
+**4．ip addr命令**
+ip addr命令用于获取网卡配置与网络状态等信息。
+ip addr命令是`ip address show`命令简写。
+使用ip addr命令来查看本机当前的网卡配置与网络状态等信息时，其实主要查看的就是网卡名称、inet参数后面的IP地址、ether参数后面的网卡物理地址（又称为MAC地址)：
+
+**2.2 查看DNS服务器地址**
+DNS服务器和域名服务器同义。DNS（Domain Name Server，域名服务器）是进行域名(domain name)和与之相对应的IP地址(IP address)转换的服务器。在Centos 7 上，需要查看DNS服务器地址可以查看/etc/resolv.conf文件内容。
+
+**2.3 查看本机路由表**
+使用下面的 route 命令可以查看 Linux 内核路由表。
+使用iproute2工具包中的`ip route list`也可以查看路由表的内容
+
+**2.4 查看主机名称**
+使用hostname命令可以查看当前系统主机名。
+如果需要看更详细的信息，可以使用hostnamectl命令查看主机信息。
+
+## 3.网络配置文件介绍
+
+**3.1 配置文件介绍**
+在RHEL或者CentOS等Redhat系的Linux系统里，跟网络有关的主要设置文件如下：
+
+| 位置                           | 文件说明                                        |
+| ------------------------------ | ----------------------------------------------- |
+| /etc/host.conf                 | 配置域名服务客户端的控制文件                    |
+| /etc/hosts                     | 完成主机名映射为IP地址的功能                    |
+| /etc/resolv.conf               | 域名服务客户端的配置文件,用于指定域名服务器位置 |
+| /etc/sysconfig/network         | 包含了主机最基本的网络信息,用于系统启动.        |
+| /etc/sysconfig/network-script/ | 系统启动时初始化网络的一些信息                  |
+| /etc/networks                  | 完成域名与网络地址的映射                        |
+| /etc/protocols                 | 设定了主机使用的协议以及各个协议的协议号        |
+| /etc/services                  | 设定主机的不同端口的网络服务                    |
+
+**3.2 网络接口配置文件介绍**
+进入Linux环境中，在/etc/sysconfig/network-scripts/目录中有很多跟网络相关的脚本文件，其中就有网络接口配置文件ifcfg-网络接口名称。
+ifcfg-lo是环路地址的配置文件
+ifup是开启网络接口的脚本文件
+ifdown是关闭网络接口的脚本文件
+
+打开/etc/sysconfig/network-scripts/ifcfg-eno**网络接口配置文件，可以看到里面有许多配置项目。
+其他配置项目
+
+| 代码      | 说明                                               |
+| --------- | -------------------------------------------------- |
+| TYPE      | 设备类型                                           |
+| BOOTPROTO | 获取IP地址的方法。static：静态配置，dhcp：dhcp协议 |
+| DEVICE    | 表示物理设备的名字                                 |
+| IPADDR    | 表示赋给该网卡的IP地址                             |
+| NETMASK   | 表示子网掩码                                       |
+| GATEWAY=  | 表示默认网关                                       |
+| MACADDR=  | 表示指定一个MAC地址                                |
+| USERCTL   | 是否允许非root用户控制该设备yes/no                 |
+| DNS1      | 表示DNS服务器地址                                  |
+| ONBOOT    | 开机启动方式。yes开机启动，no开机不启动            |
+
+**3.3 主机名称配置文件介绍**
+/etc/hostname文件中放置的是系统的主机名称，默认情况下Linux环境的主机名称为 localhost.localdomain。
+
+**3.4 地址解析配置文件介绍**
+**/etc/host.conf**是用来配置域名服务客户端的控制文件，主要内容如下：
+multi on #允许主机拥有多个IP地址
+order hosts,bind #主机名解析顺序，即本地解析,DNS域名解析的顺序
+这个文件一般不需要我们修改，默认的解析顺序是本地解析,DNS服务器解析。也就是说在本系统里对于一个主机名首先进行本地解析，如果本地解析没有，然后进行DNS服务器解析。
+
+**/etc/hosts**是完成主机名映射为IP地址的具体信息文件，主要内容如下：
+127.0.0.1 localhost localhost.localdomain localhost
+::1 localhost6.localdomain6 localhost6
+可见，默认的情况是本机ip和本机一些主机名的对应关系，第一行是ipv4信息，第二行是ipv6 信息，如果用不上ipv6本机解析，一般把该行注释掉。
+
+**/etc/resolv.conf**是指定域名解析的DNS服务器IP等信息的配置文件,配置参数一般接触到的有4个：
+nameserver 指定DNS服务器的IP地址
+domain 定义本地域名信息
+search 定义域名的搜索列表
+sortlist 对gethostbyname返回的地址进行排序
+但是最常用的配置参数是nameserver，其他的可以不设置，这个参数指定了DNS服务器的IP 地址，如果设置不正确，就无法进行正常的域名解析。
+
+## 4.临时配置网络信息
+
+**4.1 临时配置IP地址和子网掩码**
+使用ip addr 可以查看网络接口的IP地址，也可以临时为网络接口配置一个IP地址和子网掩码，具体格式如下：
+`# ip addr add/del IP地址/掩码 [broadcast 广播地址] dev 网络接口名称`
+例如：
+`# ip addr add 192.168.0.1/24 dev ens33`\#设置ens33网卡IP地址192.168.0.1
+`# ip addr del 192.168.0.1/24 dev ens33`\#删除ens33网卡IP地址192.168.0.1
+在不重启network网络服务的基础上，临时IP地址和子网掩码是有效的，一旦重启机器或者重启network服务，临时配置的设置会清除。可以给网卡配置多个IP地址。
+
+**4.2 临时配置网关**
+在网络中，不同网段通信要通过网关，所以网关的设定也很重要，临时设置网关可以使用如下命令：
+`# ip route add/del default via 网关地址 dev 网络接口名称`
+配置默认网关：
+`# ip route list`#查看路由信息
+`# ip route add default via 192.168.0.254 dev eth0`#设置默认网关为192.168.0.254
+`# ip route del default `#删除默认路由
+
+配置某网段网关：
+`# ip route list`#查看路由信息
+`# ip route add 192.168.4.0/24 via 192.168.0.254 dev eth0 `#设置192.168.4.0网段的网关为192.168.0.254,数据走eth0接口
+`# ip route del 192.168.4.0/24`#删除192.168.4.0网段的网关
+
+## 5.永久配置网络信息
+
+**5.1 永久配置IP地址等网络信息**
+修改网络接口配置文件`/etc/sysconfig/network-scripts/ifcfg-en***`文件内容，可以把 IPV6的部分注释掉。
+
+```python
+BOOTPROTO=static #开机协议设置为static
+ONBOOT=yes		#设置为开机启动
+DNS1=144.144.144.144	#设置主DNS1地址
+IPADDR=192.168.2.2		#设置固定的IP地址
+NETMASK=255.255.255.0	#设置子网掩码
+GATEWAY=192.168.2.1		#网关
+```
+
+注意：在Linux环境中，修改了配置文件，一定要重启相关服务才能生效。在修改了网络接口配置文件后，要重启network网络服务。
+network网络服务的设置：
+`systemctl start network.service`启动network网络服务
+`systemctl restart network.service`重启network网络服务
+`systemctl stop network.service`停止network网络服务
+`systemctl status network.service`查询network网络服务状态
+`ifup 网络接口名称`激活指定的网络接口
+` ifdown 网络接口名称`禁用指定的网络接口
+
+**5.2 永久配置主机名称**
+使用hostnamectl可以查看详细的主机信息，也可以修改主机的名称。使用hostnamectl set-hostname 命令修改主机名，可永久生效。
+除了使用命令来修改主机名称以外，还可以直接修改配置文件/etc/hostname.
+
+## 6.网络管理命令
+
+**6.1 网络管理命令介绍**
+计算机网络的主要优点是能够实现资源和信息的共享，并且用户可以远程访问信息。Linux 提供了一组强有力的网络命令来为用户服务，这些工具能够帮助用户登录到远程计算机上、传输文件和执行远程命令等。
+ping 查询某个机器是否在工作
+netstat 查看网络的状况
+nslookup 查询域名和IP地址的对应
+last命令和lastlog命令查询用户登录信息
+traceroute命令用来检测传输的路径
+
+**6.2 ping命令**
+**ping命令的全称是Packet Internet Grope，即因特网包探索器**。Ping在网络中使用很广泛，一般用来测试源主机到目的主机网络的连通性。
+当网络不通时，一般可以通过该命令来检查和判断网络出现故障的原因。Ping命令通过调用ICMP(因特网控制报文协议），发送一份ICMP回显请求报文给目的主机，并等待返回ICMP回显应答。
+命令格式：`ping(选项)(参数)`
+常用选项：
+-c<完成次数>：设置完成要求回应的次数；
+-v：详细显示指令的执行过程。
+-s<数据包大小>：设置数据包的大小；
+-t<存活数值>：设置存活数值TTL的大小；
+注意：在linux环境中，ping命令如果不附加-c选项会一直发数据包进行测试。
+
+**6.3 netstat命令和ss命令**
+Netstat是一个监控TCP/IP网络的非常有用的工具，它可以**显示路由表、实际的TCP网络连接，TCP和UDP监听，进程内存管理以及每一个网络接口设备的状态信息**。Netstat用于显示与IP、TCP、UDP和ICMP协议相关的统计数据，一般用于检验本机各端口的网络连接情况，让用户得知有哪些网络连接正在运作。
+注意：最小化安装centos7需要安装net-tools软件包才能使用netstat命令。
+
+**netstat命令**
+命令格式：`netstat [选项] [参数]`
+常用选项：
+**-a** (all)显示所有选项，netstat默认不显示LISTEN相关
+**-s** 按各个协议进行统计
+**-n** 拒绝显示别名，能显示数字的全部转化成数字。
+-t (tcp)仅显示tcp相关选项-u (udp)仅显示udp相关选项
+-l 仅列出有在 Listen (监听)的服務状态
+-p 显示建立相关链接的程序名(macOS中表示协议-p protocol)
+-c 每隔一个固定时间，执行该netstat命令。
+例子：
+显示所有协议内容：`netstat -anp`
+列出所有端口: `netstat -a `
+列出所有tcp端口: `netstat -at `
+列出所有udp端口: `netstat -au `
+只显示监听端口: `netstat -l`
+只列出所有监听tcp端口: `netstat -lt `
+只列出所有监听udp端口: `netstat -lu `
+只列出所有监听UNIX端口: `netstat -lx`
+显示每个协议的统计信息:`netstat -s `
+显示 PID 和进程名称: `netstat -pt `
+显示核心路由信息: `netstat -rn`
+找出运行在指定端口的进程: `netstat -an | grep “:22”`
+显示网络接口列表: `netstat -i`
+
+**ss命令**
+ss是Socket Statistics的缩写。ss命令可以用来获取socket统计信息，它可以显示和netstat 类似的内容。但ss的优势在于它能够显示更多更详细的有关TCP和连接状态的信息，而且比 netstat更快速更高效。
+命令格式：`ss [参数] [过滤]`
+常用选项：
+-V, --version 程序版本信息
+-o, --options 显示计时器信息
+-n, --numeric 不解析服务名称
+-e, --extended 显示详细的套接字（sockets）信息
+-r, --resolve 解析主机名
+-m, --memory 显示套接字（socket）的内存使用情况
+-a, --all 显示所有套接字（sockets）
+-p, --processes 显示使用套接字（socket）的进程
+-t, --tcp 仅显示 TCP套接字（sockets）
+-i, --info 显示 TCP内部信息
+例子：
+显示TCP连接:ss -t -a
+列出所有打开的网络连接端口：ss -l
+查看进程使用的socket：ss -pl
+显示所有UDP Sockets: ss -u -a
+匹配远程地址和端口号：ss dst ADDRESS_PATTERN
+匹配本地地址和端口号：ss src ADDRESS_PATTERN
+
+**6.4 last命令和lastlog命令**
+last命令:查看目前和过去的用户登录信息
+lastlog命令:只显示用户最后登录信息
+
+**6.5 traceroute命令**
+**traceroute命令用于追踪数据包在网络上的传输时的全部路径**，它默认发送的数据包大小是40字节。通过traceroute我们可以知道信息从你的计算机到互联网另一端的主机是走的什么路径。当然每次数据包由某一同样的出发点（source）到达某一同样的目的地(destination)走的路径可能会不一样，但基本上来说大部分时候所走的路由是相同的。
+**语法格式：**`traceroute(选项)(参数)`
+
