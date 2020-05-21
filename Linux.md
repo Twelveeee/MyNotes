@@ -89,7 +89,7 @@ Linux新手不会执行命令大多是因为参数比较复杂，参数值需要
 环境下，命令提示符各不相同。
 在Linux环境中，输入界面中的如下所示是命令提示符，表示命令输入的状态。
 
-[当前用户账号@当前主机名 路径最后一个目录 ] #或者$
+[当前用户账号@当前主机名 路径最后一个目录 ]#或者$
 管理员root用户的提示符“#”
 ```[root@localhost ~]#```
 普通用户提示符“$”
@@ -213,7 +213,7 @@ last命令用于查看所有系统的登录记录，格式为“last [选项]”
 使用“!!”重复执行上一条命令
 使用“!字串”重复执行最后一条以该字符串开头的命令
 
-## 5、 工作目录切换命令
+## 5、工作目录切换命令
 
 ### 5.1linux目录介绍
 
@@ -428,7 +428,7 @@ mkdir命令用于创建空白的目录。除了能创建单个空白目录外，
 2．rmdir命令
 删除目录（为空目录）
 命令格式：```rmdir [选项] <目录名>```
-命令选项：-p： 循环删除目录
+命令选项：-p：循环删除目录
 实例：
 
 ```
@@ -510,15 +510,15 @@ tar命令用于对文件进行打包压缩或解压，tar命令可以把一系�
 -t：查看内容。
 -x：解开档案文件。
 
-实例一：将整个 /etc 目录下的文件全部打包成为 /tmp/etc.tar
+实例一：将整个/etc 目录下的文件全部打包成为/tmp/etc.tar
 ```[root@linux ~]# tar -cvf /tmp/etc.tar /etc```　　　<==仅打包，不压缩！
 ```[root@linux ~]# tar -zcvf /tmp/etc.tar.gz /etc```　<==打包后，以 gzip 压缩
-```[root@linux ~]# tar -jcvf /tmp/etc.tar.bz2 /etc```　 <==打包后，以 bzip2 压缩
+```[root@linux ~]# tar -jcvf /tmp/etc.tar.bz2 /etc```　<==打包后，以 bzip2 压缩
 
-实例二：查阅上述 /tmp/etc.tar.gz 文件内有哪些文件？
+实例二：查阅上述/tmp/etc.tar.gz 文件内有哪些文件？
 ```[root@linux ~]# tar -ztvf /tmp/etc.tar.gz```
 
-实例三：将 /tmp/etc.tar.gz 文件解压缩在 /usr/local/src 底下
+实例三：将/tmp/etc.tar.gz 文件解压缩在/usr/local/src 底下
 ```[root@linux ~]# cd /usr/local/src```
 ```[root@linux src]# tar -zxvf /tmp/etc.tar.gz```
 
@@ -543,10 +543,10 @@ tar命令用于对文件进行打包压缩或解压，tar命令可以把一系�
 
 实例二：
 查找文件名中包含某字符（如"elm"）的文件
-```find /home/ -name ‘*elm*‘ ```中间包含elm的文件
-```find /home/ -name ‘elm*‘``` 以elm开头的文件
-```find /home/ -name ‘*elm‘ ```以elm结尾的文件
-```find /home/ -name ‘elm？'``` 以elm开头的4字符名称的文件
+```find /home/ -name ‘*elm*‘```中间包含elm的文件
+```find /home/ -name ‘elm*‘```以elm开头的文件
+```find /home/ -name ‘*elm‘```以elm结尾的文件
+```find /home/ -name ‘elm？'```以elm开头的4字符名称的文件
 
 **2．grep命令**
 grep命令用于在文本中执行关键词搜索，并显示匹配的结果。
