@@ -20,7 +20,7 @@ system("pause");
 
 ```c
 //第一种
-Struct Product//结构体名
+struct Product//结构体名
 {
  char cname// 成员列表
 }product1,product2 ;
