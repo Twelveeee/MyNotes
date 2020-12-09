@@ -321,3 +321,75 @@ v2貌似已经换掉了placeholder ，看到我再添加。
 ## 创建第一个神经网络
 
 ### 例子3 添加层 def add_layer()
+
+
+
+# 计算机视觉介绍
+
+## Anaconda使用
+
+```python
+%config IPCompleter.greedy=True  #按tag可以自动补全代码
+```
+
+## 加载Fashion MNIST数据集
+
+70000张图片
+10个类别
+28*28像素
+训练神经元网络
+![image-20201209220451516](img/TensorFlow/image-20201209220451516.png)
+
+```python
+import tensorflow as tf
+from tensorflow import keras
+import matplotlib.pyplot as plt
+
+#导入数据集
+fasion_mnist = keras.datasets.fashion_mnist
+#划分数据集
+(train_images,train_labels),(test_images,test_labels) = fasion_mnist.load_data()
+
+#看数据集大小
+print(train_images.shape)
+
+#展示图片
+plt.imshow(train_images[1])
+
+```
+
+![image-20201209220813905](img/TensorFlow/image-20201209220813905.png)
+
+## 构建神经元网络模型
+
+![image-20201209220900053](img/TensorFlow/image-20201209220900053.png)
+
+![image-20201209220929783](img/TensorFlow/image-20201209220929783.png)
+
+全连接的网络结构
+
+```python
+model = keras.Sequential()
+model.add(keras.layers.Flatten(input_shape=(28,28)))
+model.add(keras.layers.Dense(128,activation=tf.nn.relu))
+model.add(keras.layers.Dense(10,activation=tf.nn.softmax))
+
+model.summary()
+
+#以下为console
+Model: "sequential_1"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+flatten_1 (Flatten)          (None, 784)  个像素             0         
+_________________________________________________________________
+dense (Dense)                (None, 128)               100480    （784个像素+1权重）*128个神经元
+_________________________________________________________________
+dense_1 (Dense)              (None, 10)                1290      （128个神经元+1权重）*10个类别
+=================================================================
+Total params: 101,770
+Trainable params: 101,770
+Non-trainable params: 0
+_________________________________________________________________
+```
+
