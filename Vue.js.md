@@ -831,3 +831,81 @@ var Vue = new Vue({
 
 ```
 
+# Vue深入
+
+## 1.组件
+
+组件是可复用的 Vue 实例，且带有一个名字。
+
+```vue
+// 定义一个名为 button-counter 的新组件
+Vue.component('button-counter', {
+  data: function () {
+    return {
+      count: 0
+    }
+  },
+  template: '<button v-on:click="count++">You clicked me {{ count }} times.</button>'
+})
+```
+
+因为组件是可复用的 Vue 实例，所以它们与 `new Vue` 接收相同的选项，例如 `data`、`computed`、`watch`、`methods` 以及生命周期钩子等。仅有的例外是像 `el` 这样根实例特有的选项。
+
+你可以将组件进行任意次数的复用
+
+**一个组件的 `data` 选项必须是一个函数**，因此每个实例可以维护一份被返回对象的独立的拷贝：
+
+```vue
+data: function () {
+  return {
+    count: 0
+  }
+}
+```
+
+## 2.组件注册
+
+### **组件名**
+
+在注册一个组件的时候，我们始终需要给它一个名字。
+
+```vue
+Vue.component('my-component-name', { /* ... */ })
+```
+
+该组件名就是 `Vue.component` 的第一个参数。
+
+### **局部注册**
+
+全局注册往往是不够理想的。
+
+在这些情况下，你可以通过一个普通的 JavaScript 对象来定义组件：
+
+```vue
+var ComponentA = { /* ... */ }
+var ComponentB = { /* ... */ }
+var ComponentC = { /* ... */ }v
+```
+
+然后在 `components` 选项中定义你想要使用的组件：
+
+```vue
+new Vue({
+  el: '#app',
+  components: {
+    'component-a': ComponentA,
+    'component-b': ComponentB
+  }
+})
+```
+
+
+
+
+
+
+
+
+
+# Vue-cli项目框架
+
