@@ -393,3 +393,189 @@ Non-trainable params: 0
 _________________________________________________________________
 ```
 
+## 训练和评估模型
+
+
+
+```python
+#scaling or normalization 把灰度变成只有1和0
+train_imges_scaled=train_images/255
+
+#metrics=['accuracy'] 是为了看到指标accuracy的变化，
+model.compile(optimizer=tf.optimizers.Adam(),loss=tf.losses.sparse_categorical_crossentropy,metrics=['accuracy'])
+#训练，epochs重复次数5次
+model.fit(train_imges_scaled,train_labels,epochs=5)
+
+#模型评估
+test_images_scaled = test_images/255
+model.evaluate(test_images_scaled,test_labels)
+
+
+import numpy as np
+
+print(np.argmax( model.predict([[test_images[0]/255]])))
+print(test_labels[0])
+plt.imshow(test_images[0])
+```
+
+
+
+## 自动终止训练
+
+![image-20201210194942305](img/TensorFlow/image-20201210194942305.png)
+
+```python
+#重载一个callback方法
+class myCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self,epoch,logs={}):
+        if(logs.get('loss')<0.4):
+            print("\n Loss is low so cancelling training!")
+            self.model.stop_training = True
+            
+callbacks= myCallback()
+mnist =tf.keras.datasets.fashion_mnist
+(training_images,training_labels),(test_images,test_labels) = mnist.load_data()
+training_images_scaled = training_images/255
+test_images_scaled = test_images/255
+
+model =tf.keras.models.Sequential([
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(512,activation = tf.nn.relu),
+    tf.keras.layers.Dense(10,activation = tf.nn.softmax)
+])
+model.compile(optimizer='adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+model.fit(training_images_scaled,training_labels,epochs=5,callbacks=[callbacks])
+
+---console:---
+Epoch 1/5
+1875/1875 [==============================] - 5s 3ms/step - loss: 0.4734 - accuracy: 0.8292
+Epoch 2/5
+1867/1875 [============================>.] - ETA: 0s - loss: 0.3585 - accuracy: 0.8697
+ Loss is low so cancelling training!
+1875/1875 [==============================] - 5s 3ms/step - loss: 0.3583 - accuracy: 0.8697
+```
+
+# 卷积介绍
+
+## 卷积神经网络
+
+卷积神经网络(Convolutional Neural Network) CNN
+大部分的图片并不是正正方方摆好的，会有些偏移，这时候全连接的计算机视觉就不太好使了。
+他是识别物品的特征，来判断物品的；
+
+![image-20201210200313433](img/TensorFlow/image-20201210200313433.png)
+
+
+
+从图像当中取到的像素，通过过滤器，与过滤器（Filter）相乘，最后相加，得到一个新的像素集；
+
+不同的filter会有不同的效果
+
+![image-20201210200607255](img/TensorFlow/image-20201210200607255.png)
+
+![image-20201210200657614](img/TensorFlow/image-20201210200657614.png)
+
+每次卷积完了之后还要再做一个Max Pooling，他的作用是增强图像的特征，如下是取最大值，最后就剩下一个2x2的矩阵
+
+![image-20201210200734124](img/TensorFlow/image-20201210200734124.png)
+
+![image-20201210200907168](img/TensorFlow/image-20201210200907168.png)
+
+Max Pooling以后数据减少了，但是特征增强了。卷积的材料可以看https://bit.ly/2UGa7uH
+
+## 卷积神经程序
+
+```python
+import tensorflow as tf
+from tensorflow import keras
+
+fasion_mnist = keras.datasets.fashion_mnist
+(train_images,train_labels),(test_images,test_labels) = fasion_mnist.load_data()
+
+model = keras.Sequential()
+#Conv2D二维的卷积层，64个过滤器，每个过滤器3X3的像素，
+model.add(keras.layers.Conv2D(64,(3,3),activation='relu',input_shape=(28,28,1)))
+#Maxpooling 2x2，四个像素，
+model.add(keras.layers.MaxPooling2D(2,2))
+model.add(keras.layers.Conv2D(64,(3,3),activation='relu'))
+model.add(keras.layers.MaxPooling2D(2,2))
+
+model.add(keras.layers.Flatten())
+model.add(keras.layers.Dense(128,activation=tf.nn.relu))
+model.add(keras.layers.Dense(10,activation=tf.nn.softmax))
+
+train_imges_scaled=train_images/255
+model.compile(optimizer=tf.optimizers.Adam(),loss=tf.losses.sparse_categorical_crossentropy,metrics=['accuracy'])
+#reshape ，-1是不管无视行数
+model.fit(train_imges_scaled.reshape(-1,28,28,1),train_labels,epochs=5)
+```
+
+## 卷积网络结构
+
+```python
+model.summary()
+
+---console---
+Model: "sequential"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+conv2d (Conv2D)              (None, 26, 26, 64)        640  
+//输入是28x28，但是filter去掉了两个像素，64个filter
+//640 = (3*3+1)*64  
+_________________________________________________________________
+max_pooling2d (MaxPooling2D) (None, 13, 13, 64)        0    //尺寸缩小一半。没有调整参数所以Param=0
+_________________________________________________________________
+conv2d_1 (Conv2D)            (None, 11, 11, 64)        36928  //再卷积，又去掉两个像素
+//36928=(3*3*64+1)*64
+_________________________________________________________________
+max_pooling2d_1 (MaxPooling2 (None, 5, 5, 64)          0       //尺寸继续锁校
+_________________________________________________________________
+flatten (Flatten)            (None, 1600)              0       //展平数据，
+_________________________________________________________________
+dense (Dense)                (None, 128)               204928  //
+_________________________________________________________________
+dense_1 (Dense)              (None, 10)                1290      
+=================================================================
+Total params: 243,786
+Trainable params: 243,786
+Non-trainable params: 0
+_________________________________________________________________
+```
+
+
+
+```python
+#读取MODEL的每个层
+layer_outputs = [layer.output for layer in model.layers]
+#将input和output放在一起，构成一组对象
+activation_model = tf.keras.models.Model(inputs=model.input,outputs=layer_outputs )
+#用在一张图片上，预测结果
+pred = activation_model.predict(test_images[0].reshape(1,28,28,1))
+len(pred)
+#输出7，有7个层的输出
+pred[0].shape
+#(1,26,26,64) 
+
+pred[0][0,:,:,1]
+#第0层，所有的行，所有的列，filter
+```
+
+第0层，conv2d，filter=1
+![](img/TensorFlow/image-20201210214820333.png)
+第1层，max_pooling2d，filter=1
+![image-20201210215457034](img/TensorFlow/image-20201210215457034.png)
+第2层，conv2d_1，filter =1
+![image-20201210215623822](img/TensorFlow/image-20201210215623822.png)
+第3层，max_pooling2d_1，filter=1
+![image-20201210215648245](img/TensorFlow/image-20201210215648245.png)
+
+第4层，flatten
+![image-20201210215701092](img/TensorFlow/image-20201210215701092.png)
+第5层，dense
+![image-20201210215709794](img/TensorFlow/image-20201210215709794.png)
+第6层，dense_1，一共6层，输出预测结果
+![image-20201210215719873](img/TensorFlow/image-20201210215719873.png)
+
+第0层，filter=50，不同filter的样子
+![image-20201210215805919](img/TensorFlow/image-20201210215805919.png)
