@@ -579,3 +579,186 @@ pred[0][0,:,:,1]
 
 第0层，filter=50，不同filter的样子
 ![image-20201210215805919](img/TensorFlow/image-20201210215805919.png)
+
+# 更复杂的图像应用
+
+项目过程：准备训练数据，构建模型，训练模型，优化参数
+
+真实数据的特点：
+图片尺寸大小不一，需要裁剪成一样大小；
+数据量比较大，不能一下转入内存；
+需要经常修改参数，例如输出的尺寸，增补图像拉伸等；
+
+```python
+
+!wget --no-check-certificate \
+    https://storage.googleapis.com/laurencemoroney-blog.appspot.com/horse-or-human.zip \
+    -O /tmp/horse-or-human.zip
+!wget --no-check-certificate \
+    https://storage.googleapis.com/laurencemoroney-blog.appspot.com/validation-horse-or-human.zip \
+    -O /tmp/validation-horse-or-human.zip
+#用OS库来调用文件系统，用zipfile库来解压数据。
+#Zip文件的内容会被解压到目录/tmp/horse-or-human，而该目录下又分别包含horses和humans子目录。
+import os
+import zipfile
+
+local_zip = '/tmp/horse-or-human.zip'
+zip_ref = zipfile.ZipFile(local_zip, 'r')
+zip_ref.extractall('/tmp/horse-or-human')
+zip_ref.close()
+
+local_zip = '/tmp/validation-horse-or-human.zip'
+zip_ref = zipfile.ZipFile(local_zip, 'r')
+zip_ref.extractall('/tmp/validation-horse-or-human')
+zip_ref.close()
+
+#看一下训练目录中的文件名
+train_horse_names = os.listdir(train_horse_dir)
+print(train_horse_names[:10])
+#['horse22-1.png', 'horse13-0.png', 'horse22-4.png', 'horse19-2.png', 'horse23-5.png', 'horse18-5.png', 'horse10-1.png', 'horse27-8.png', 'horse28-7.png', 'horse35-2.png']
+
+train_human_names = os.listdir(train_human_dir)
+print(train_human_names[:10])
+#['human04-12.png', 'human09-19.png', 'human10-16.png', 'human13-04.png', 'human15-21.png', 'human09-29.png', 'human13-11.png', 'human17-12.png', 'human03-12.png', 'human16-15.png']
+
+#查看总数
+print('total training horse images:', len(os.listdir(train_horse_dir)))
+print('total training human images:', len(os.listdir(train_human_dir)))
+#total training horse images: 500
+#total training human images: 527
+
+
+#查看几张照片
+#配置matplot
+%matplotlib inline
+
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+# 设置参数Parameters，长宽
+nrows = 4
+ncols = 4
+
+# Index for iterating over images
+pic_index = 0
+
+# Set up matplotlib fig, and size it to fit 4x4 pics
+fig = plt.gcf()
+fig.set_size_inches(ncols * 4, nrows * 4)
+
+pic_index += 8
+next_horse_pix = [os.path.join(train_horse_dir, fname) 
+                for fname in train_horse_names[pic_index-8:pic_index]]
+next_human_pix = [os.path.join(train_human_dir, fname) 
+                for fname in train_human_names[pic_index-8:pic_index]]
+
+for i, img_path in enumerate(next_horse_pix+next_human_pix):
+  # Set up subplot; subplot indices start at 1
+  sp = plt.subplot(nrows, ncols, i + 1)
+  sp.axis('Off') # Don't show axes (or gridlines)
+
+  img = mpimg.imread(img_path)
+  plt.imshow(img)
+
+plt.show()
+```
+
+![image-20201213213800322](img/TensorFlow/image-20201213213800322.png)
+
+## ImageDataGenerator
+
+```python
+import os
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.optimizers import RMSprop
+#定义 ImageDataGenerator
+train_datagen = ImageDataGenerator(rescale=1/255)
+validation_datagen = ImageDataGenerator(rescale=1/255)
+train_generator = train_datagen.flow_from_directory('/tmp/horse-or-human/',  
+        target_size=(150, 150),batch_size=32,class_mode='binary')
+validation_generator = validation_datagen.flow_from_directory('/tmp/validation-horse-or-human/',  
+        target_size=(150, 150), batch_size=32,class_mode='binary')
+
+
+```
+
+
+
+## 调参
+
+因为我们面对的是一个二类分类的问题，所以用sigmoid激活函数作为模型的最后一层，这样我们网络的输出将是一个介于0和1的有理数，即当前图像是1类的概率。
+
+Kerastuner就是一个可以自动搜索模型训练参数的库。它的基本思路是在需要调整参数的地方插入一个特殊的对象（可指定参数范围），然后调用类似训练那样的search方法即可。
+
+
+
+准备训练数据
+
+```python
+import os
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.optimizers import RMSprop
+train_datagen = ImageDataGenerator(rescale=1/255)
+validation_datagen = ImageDataGenerator(rescale=1/255)
+train_generator = train_datagen.flow_from_directory('/tmp/horse-or-human/',  
+        target_size=(150, 150),batch_size=32,class_mode='binary')
+validation_generator = validation_datagen.flow_from_directory('/tmp/validation-horse-or-human/',  
+        target_size=(150, 150), batch_size=32,class_mode='binary')
+
+
+```
+
+加载库，`!pip3 install -U keras-tuner`记得安装keras-tuner
+
+```python
+from kerastuner.tuners import Hyperband
+from kerastuner.engine.hyperparameters import HyperParameters
+import tensorflow as tf
+```
+
+接着创建HyperParameters对象，然后在模型中插入Choice、Int等调参用的对象。
+
+```python
+hp=HyperParameters()
+def build_model(hp):
+    model = tf.keras.models.Sequential()        
+    model.add(tf.keras.layers.Conv2D(hp.Choice('num_filters_top_layer',values=[16,64],default=16), (3,3), 
+                                     activation='relu', input_shape=(150, 150, 3)))
+    model.add(tf.keras.layers.MaxPooling2D(2, 2))
+    for i in range(hp.Int("num_conv_layers",1,3)):
+        model.add(tf.keras.layers.Conv2D(hp.Choice(f'num_filters_layer{i}',values=[16,64],default=16), (3,3), activation='relu'))
+        model.add(tf.keras.layers.MaxPooling2D(2,2))
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(hp.Int("hidden_units",128,512,step=32), activation='relu'))
+    model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
+    model.compile(loss='binary_crossentropy',optimizer=RMSprop(lr=0.001),metrics=['acc'])
+    return model
+
+```
+
+然后创建Hyperband对象，这是Kerastuner支持的四种方法的其中一种，其优点是能较四童话第查找参数。具体资料可以到Kerastuner的网站获取。
+
+最后调用search方法。
+
+```python
+tuner=Hyperband(
+    build_model,
+    objective='val_acc',
+    max_epochs=10,
+    directory='horse_human_params',
+    hyperparameters=hp,
+    project_name='my_horse_human_project'
+)
+tuner.search(train_generator,epochs=10,validation_data=validation_generator)
+```
+
+搜索到最优参数后，可以通过下面的程序，用tuner对象提取最优参数构建神经元网络模型。并调用summary方法观察优化后的网络结构。
+
+```python
+best_hps=tuner.get_best_hyperparameters(1)[0]
+print(best_hps.values)
+model=tuner.hypermodel.build(best_hps)
+model.summary()
+
+```
+
