@@ -1,24 +1,24 @@
 # SpringBoot2基础入门
 
+## Spring与SpringBoot
 
+### Spring能做什么
 
-## Spring能做什么
-
-### Spring的能力
+#### Spring的能力
 
 MicroServices、Reactive、Cloud、webapp、serverless、enentDriven、batch
 
-### Spring的生态
+#### Spring的生态
 
 SpringFramework
 
 https://spring.io/projects/spring-boot
 
-## 为什么用SpringBoot
+### 为什么用SpringBoot
 
 > Spring Boot makes it easy to create stand-alone, production-grade Spring based Applications that you can "just run".
 
-### SpringBoot的优点
+#### SpringBoot的优点
 
 - Create stand-alone Spring applications
 
@@ -32,13 +32,13 @@ https://spring.io/projects/spring-boot
 
 - Absolutely no code generation and no requirement for XML configuration
 
-### SpringBoot的缺点
+#### SpringBoot的缺点
 
 ​	版本迭代快，封装深，内部原理复杂，不易精通
 
-## 时代背景
+### 时代背景
 
-### 微服务
+#### 微服务
 
 [James Lewis and Martin Fowler (2014)](https://martinfowler.com/articles/microservices.html)  提出微服务完整概念。https://martinfowler.com/microservices/
 
@@ -52,7 +52,7 @@ https://spring.io/projects/spring-boot
 - 可以由全自动部署机制独立部署
 - 去中心化，服务自治。服务可以使用不同的语言、不同的存储技术
 
-### 分布式
+#### 分布式
 
 **分布式的困难**
 
@@ -75,7 +75,7 @@ https://spring.io/projects/spring-boot
 
 **云原生**
 
-## 官方文档架构
+### 如何学习->官方文档架构
 
 Spring Boot Reference Documentation：https://docs.spring.io/spring-boot/docs/current/reference/html/
 
@@ -214,7 +214,9 @@ Maven 3.3及以上
 
 ## 自动配置原理入门
 
-### 1.项目依赖
+### SpringBoot特点
+
+#### 1.项目依赖
 
 依赖管理  
 
@@ -261,10 +263,237 @@ https://docs.spring.io/spring-boot/docs/current/reference/html/using-spring-boot
     </properties>
 ```
 
-### 2.自动配置
+#### 2.自动配置
 
-自动配置好tomcat
+- 自动配好Tomcat
+
+- - 引入Tomcat依赖。
+  - 配置Tomcat
+
+```xml
+<dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-tomcat</artifactId>
+      <version>2.3.4.RELEASE</version>
+      <scope>compile</scope>
+    </dependency>
+```
+
+- 自动配好SpringMVC
+
+- - 引入SpringMVC全套组件
+  - 自动配好SpringMVC常用组件（功能）
+
+- 自动配好Web常见功能，如：字符编码问题
+
+- - SpringBoot帮我们配置好了所有web开发的常见场景
+
+- 默认的包结构
+
+- - 主程序所在包及其下面的所有子包里面的组件都会被默认扫描进来
+  - 无需以前的包扫描配置
+  - 想要改变扫描路径，在application里改变`@SpringBootApplication(scanBasePackages="com.ctf")`
+
+- - - 或者`@ComponentScan` 指定扫描路径
+
+```java
+@SpringBootApplication
+等同于
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan("com.ctf.boot")
+```
 
 
-# SpringBoot2核心功能
 
+- 各种配置拥有默认值
+
+- - 默认配置最终都是映射到某个类上，如：MultipartProperties
+  - 配置文件的值最终会绑定每个类上，这个类会在容器中创建对象
+  - 要改配置直接在application.yml里改
+
+- 按需加载所有自动配置项
+
+- - 非常多的starter
+  - 引入了哪些场景这个场景的自动配置才会开启
+  - SpringBoot所有的自动配置功能都在 spring-boot-autoconfigure 包里面
+  - 
+
+- ......
+
+### 容器功能
+
+#### 组件添加
+
+##### @Configuration
+
+**Full模式与Lite模式**
+
+实战：配置类组件之间无依赖关系用Lite模式加速容器启动过程，减少判断
+
+配置类组件之间有依赖关系，方法会被调用得到之前单实例组件，用Full模式
+
+```java
+config/MyConfig
+/**
+ * 1、配置类里面使用@Bean标注在方法上给容器注册组件，默认也是单实例的
+ * 2、配置类本身也是组件
+ * 3、proxyBeanMethods：代理bean的方法
+ *      Full(proxyBeanMethods = true)、【保证每个@Bean方法被调用多少次返回的组件都是单实例的】
+ *      Lite(proxyBeanMethods = false)【每个@Bean方法被调用多少次返回的组件都是新创建的】
+ *      组件依赖必须使用Full模式默认。其他默认是否Lite模式
+ *
+ *
+ *
+ */
+@Configuration(proxyBeanMethods = false) //告诉SpringBoot这是一个配置类 == 配置文件
+public class MyConfig {
+
+    /**
+     * Full:外部无论对配置类中的这个组件注册方法调用多少次获取的都是之前注册容器中的单实例对象
+     * @return
+     */
+    @Bean //给容器中添加组件。以方法名作为组件的id。返回类型就是组件类型。返回的值，就是组件在容器中的实例
+    public User user01(){
+        User zhangsan = new User("zhangsan", 18);
+        //user组件依赖了Pet组件
+        zhangsan.setPet(tomcatPet());
+        return zhangsan;
+    }
+
+    @Bean("tom")
+    public Pet tomcatPet(){
+        return new Pet("tomcat");
+    }
+}
+```
+
+```java
+Application
+public class MainApplication {
+
+    public static void main(String[] args) {
+        //1、返回我们IOC容器
+        ConfigurableApplicationContext run = SpringApplication.run(MainApplication.class, args);
+
+        //2、查看容器里面的组件
+        String[] names = run.getBeanDefinitionNames();
+        for (String name : names) {
+            System.out.println(name);
+        }
+
+        //3、从容器中获取组件
+
+        Pet tom01 = run.getBean("tom", Pet.class);
+
+        Pet tom02 = run.getBean("tom", Pet.class);
+
+        System.out.println("组件："+(tom01 == tom02));
+
+
+        //4、com.atguigu.boot.config.MyConfig$$EnhancerBySpringCGLIB$$51f1e1ca@1654a892
+        MyConfig bean = run.getBean(MyConfig.class);
+        System.out.println(bean);
+
+        //如果@Configuration(proxyBeanMethods = true)代理对象调用方法。SpringBoot总会检查这个组件是否在容器中有。
+        //保持组件单实例
+        User user = bean.user01();
+        User user1 = bean.user01();
+        System.out.println(user == user1);
+
+
+        User user01 = run.getBean("user01", User.class);
+        Pet tom = run.getBean("tom", Pet.class);
+
+        System.out.println("用户的宠物："+(user01.getPet() == tom));
+
+
+
+    }
+}
+```
+
+##### @Bean、@Component、@Controller、@Service、@Repository
+
+@Component：组件
+@Controller：控制器
+@Service：业务逻辑组件
+@Repository：数据库层组件
+
+##### @ComponentScan、@Import
+
+@ComponentScan：配置包扫描
+@Import：导入
+
+```java
+/** 
+* 4、@Import({User.class, DBHelper.class})
+ *      给容器中自动创建出这个类型的组件、默认组件的名字就是全类名
+ *
+ *
+ *
+ */
+
+@Import({User.class, DBHelper.class})
+@Configuration(proxyBeanMethods = false) //告诉SpringBoot这是一个配置类 == 配置文件
+public class MyConfig {
+}
+```
+
+##### @Conditional
+
+条件装配：满足Conditional指定的条件，才进行组件注入
+
+```java
+//当容器中有名为“tom”的组件，才进行组件注入
+@ConditionalOnBean(name = "tom")
+public class MyConfig {
+    @Bean 
+    public User user01(){
+        User zhangsan = new User("zhangsan", 18);
+        //user组件依赖了Pet组件
+        zhangsan.setPet(tomcatPet());
+        return zhangsan;
+    }
+
+    @Bean("tom")
+    public Pet tomcatPet(){
+        return new Pet("tomcat");
+    }
+}
+```
+
+#### 原生(旧的)配置文件引入
+
+##### @ImportResource
+
+```java
+//config下
+@ImportResource("classpath:beans.xml")
+public class MyConfig {
+    ...;
+}
+```
+
+```xml
+======================beans.xml=========================
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <bean id="haha" class="com.atguigu.boot.bean.User">
+        <property name="name" value="zhangsan"></property>
+        <property name="age" value="18"></property>
+    </bean>
+
+    <bean id="hehe" class="com.atguigu.boot.bean.Pet">
+        <property name="name" value="tomcat"></property>
+    </bean>
+</beans>
+```
+
+#### 配置绑定
+
+使用Java读取到properties文件中的内容，并且把它封装到JavaBean中，以供随时使用；
