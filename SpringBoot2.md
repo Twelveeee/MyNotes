@@ -497,3 +497,92 @@ public class MyConfig {
 #### 配置绑定
 
 使用Java读取到properties文件中的内容，并且把它封装到JavaBean中，以供随时使用；
+旧的Java可能要遍历properties文件；
+
+##### @ConfigurationProperties
+
+加了ConfigurationProperties，一定要加@component ，只有在容器中的组件才会拥有springboot 的功能
+
+```java
+
+@Component
+@ConfigurationProperties(prefix = "mycar")
+public class Car {
+    private String brand;
+    private Integer price;
+...
+}
+//car的属性的默认值绑定在properties文件中，前缀是“mycar”
+```
+
+##### @EnableConfigurationProperties
+
+写了@ConfigurationProperties，又不能写@component的情况下
+
+写在config里；
+
+```java
+@EnableConfigurationProperties(Car.class)
+//1.开启CAR配置绑定功能
+//2.把CAR这个组件自动注册到容器中
+public class MyConfig{
+    //..
+}
+```
+
+## 自动配置原理入门
+
+####  引导加载自动配置类
+
+@SpringBootApplication注解是啥
+
+```java
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan(excludeFilters = { @Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+        @Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class) })
+public @interface SpringBootApplication{}
+```
+
+有三个注解
+
+**1.@SpringBootConfiguration**
+
+有一个注解 @Configuration。代表当前是一个配置类
+
+**2.@ComponentScan**
+指定扫描哪些
+
+**3.@EnableAutoConfiguration**
+
+```java
+@AutoConfigurationPackage
+@Import(AutoConfigurationImportSelector.class)
+public @interface EnableAutoConfiguration {}
+```
+
+1.@AutoConfigurationPackage
+自动配置包
+
+```java
+@Import(AutoConfigurationPackages.Registrar.classb)  //给容器中导入一个组件
+public @interface AutoConfigurationPackage {}
+
+//利用Registrar给容器中导入一系列组件
+//将指定的一个包下的所有组件导入进来？MainApplication 所在包下。
+```
+
+2.@Import(AutoConfigurationImportSelector.class)
+
+1、利用`getAutoConfigurationEntry(annotationMetadata);`给容器中批量导入一些组件
+2、调用`List<String> configurations = getCandidateConfigurations(annotationMetadata, attributes)`获取到所有需要导入到容器中的配置类
+3、利用工厂加载 `Map<String, List<String>> loadSpringFactories(@Nullable ClassLoader classLoader);`得到所有的组件
+4、从META-INF/spring.factories位置来加载一个文件。
+	默认扫描我们当前系统里面所有META-INF/spring.factories位置的文件
+    spring-boot-autoconfigure-2.3.4.RELEASE.jar包里面也有META-INF/spring.factories,里面写死了127条启动springboot要导入的组件。
+
+#### 按需开启自动配置项
+
+虽然127个场景的所有自动配置在启动时默认全部加载
+但是按照条件装配规则（@Conditional），最终会按需配置。
+
