@@ -457,7 +457,7 @@ public class MyConfig {
     }
 
     @Bean("tom")
-    public Pet tomcatPet(){
+    public Pe t tomcatPet(){
         return new Pet("tomcat");
     }
 }
@@ -586,3 +586,146 @@ public @interface AutoConfigurationPackage {}
 虽然127个场景的所有自动配置在启动时默认全部加载
 但是按照条件装配规则（@Conditional），最终会按需配置。
 
+####  修改默认配置
+
+例如 ，文件上传解析器
+
+```java
+@Bean
+@ConditionalOnBean(MultipartResolver.class)  //容器中有这个类型组件
+       @ConditionalOnMissingBean(name = DispatcherServlet.MULTIPART_RESOLVER_BEAN_NAME) //容器中没有这个名字 multipartResolver 的组件 
+        public MultipartResolver multipartResolver(MultipartResolver resolver) {
+            //给@Bean标注的方法传入了对象参数，这个参数的值就会从容器中找。
+            //SpringMVC multipartResolver。防止有些用户配置的文件上传解析器不符合规范
+            // Detect if the user has created a MultipartResolver but named it incorrectly
+            return resolver;
+        }
+```
+
+SpringBoot默认会在底层配好所有的组件。但是如果用户自己配置了以用户的优先
+`@ConditionalOnMissingBean`
+
+```java
+@Bean
+@ConditionalOnMissingBean
+public CharacterEncodingFilter characterEncodingFilter() {
+    }
+```
+
+总结：
+
+- SpringBoot先加载所有的自动配置类  xxxxxAutoConfiguration
+- 每个自动配置类按照条件进行生效，默认都会绑定配置文件指定的值。从xxxxProperties里面拿。xxxProperties又和配置文件进行了绑定
+- 生效的配置类就会给容器中装配很多组件
+- 只要容器中有这些组件，相当于这些功能就有了
+- 定制化配置
+
+- - 用户直接自己@Bean替换底层的组件
+
+  - 用户去看这个组件是获取的配置文件什么值就去修改。
+
+    比如，在properties里加入`server.servlet.encoding.charset=GBK`
+
+**xxxxxAutoConfiguration --> 组件  -->** **xxxxProperties里面拿值  --> application.properties**
+
+文档：https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#common-application-properties
+
+#### 最佳实践步骤
+
+1. 引入场景依赖
+   什么什么[starter](https://docs.spring.io/spring-boot/docs/current/reference/html/using-spring-boot.html#using-boot-starter)
+2. 查看自动配置了哪些（选做）
+   1. 自己分析，引入场景对应的自动配置
+   2. 配置文件中，debug=true，开启自动配置报告，negative(不生效)\positive（生效）
+3. 是否要修改
+   1. 参照文档修改配置项
+      [application properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#common-application-properties)
+      自己分析，xxxxProperties绑定了配置文件的哪些
+   2. 自定义加入或替换组件
+      @Bean、@Component ...
+   3. 自定义器 XXXcustomizer
+   4. ...
+
+### 开发小技巧
+
+#### Lombok
+
+简化javaBean的开发
+
+1.引入Lombok
+
+```xml
+ <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+```
+
+2.idea中搜索安装lombak plugin
+
+3.简化JavaBean开发
+
+```java
+@NoArgsConstructor //无参构造器
+@AllArgsConstructor //全参构造器
+@Data //get set
+@ToString //toString
+@EqualsAndHashCode //重写Equals和HashCode 方法
+public class User {
+
+    private String name;
+    private Integer age;
+    private Pet pet;
+
+    public User(String name,Integer age){
+        this.name = name;
+        this.age = age;
+    }
+
+
+}
+```
+
+4.简化日志开发
+
+```java
+@Slf4j
+@RestController
+public class HelloController {
+    @RequestMapping("/hello")
+    public String handle01(@RequestParam("name") String name){
+        
+        log.info("请求进来了....");
+        
+        return "Hello, Spring Boot 2!"+"你好："+name;
+    }
+}
+```
+
+#### dev-tools
+
+just automatic restart，如果只是改静态页面，挺快，[文档](https://docs.spring.io/spring-boot/docs/current/reference/html/using-spring-boot.html#using-boot-devtools)
+
+1.导入依赖
+
+```xml
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+```
+
+2.改完了之后，只要ctrl+f9(build project)就能更新代码
+
+#### Spring initailizr
+
+项目初始化向导
+
+1.在idea里选spring initailizr，选择需要的开发场景
+
+2.自动依赖引入
+
+3.自动创建项目结构
+
+4.自动编写好主配置类
