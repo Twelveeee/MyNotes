@@ -554,7 +554,7 @@ counter--;
 **竞态条件 Race Condition**
 多个线程在临界区内执行，由于代码的执行序列不同而导致结果无法预测，称之为发生了竞态条件
 
-### synchronized
+## synchronized
 
 synchronized 对象锁
 采用互斥的方式让同一时刻至多只有一个线程能持有【对象锁】，其它线程再想获取这个【对象锁】时就会阻塞住。这样就能保证拥有锁的线程可以安全的执行临界区内的代码，不用担心线程上下文切换
@@ -682,3 +682,94 @@ if( table.get("key") == null) {
 **不可变类线程安全性**
 String、Integer 等都是不可变类，因为其内部的状态不可以改变，因此它们的方法都是线程安全的
 String 有 replace，substring 等方法【可以】改变值啊，那么这些方法又是如何保证线程安全的呢？直接赋值新对象。
+
+### Monitor 概念
+
+Monitor 是java对象头(object header)
+
+以 32 位虚拟机为例
+
+普通对象：
+Object Header (64 bits) = Mark Word (32 bits) + Klass Word (32 bits)
+
+数组对象
+Object Header (96 bits) = Mark Word(32bits) + Klass Word(32bits) + array length(32bits)
+
+Normal  Mark Word (32 bits) =  hashcode:25 | age:4 | biased_lock:0 | 01 
+Biased Mark Word (32 bits) = thread:23 | epoch:2 | age:4 | biased_lock:1 | 01
+
+### Monitor 原理
+
+Monitor 被翻译为监视器或管程
+每个 Java 对象都可以关联一个 Monitor 对象，如果使用 synchronized 给对象上锁（重量级）之后，该对象头的Mark Word 中就被设置指向 Monitor 对象的指针
+
+Monitor 由WaitSet、EntryList、Owner组成。
+Owner：Monitor 只能有一个Owner
+EntryList：在Owner线程上锁的时候，又有新的线程来执行，就会进入EntryList BLOCKED
+WaitSet：是之前获得过锁，但条件不满足进入 WAITING 状态的线程，后面讲wait-notify 时会分析
+
+### synchronized 原理
+
+#### 轻量级锁
+
+轻量级锁的使用场景：如果一个对象虽然有多线程要加锁，但加锁的时间是错开的（也就是没有竞争），那么可以使用轻量级锁来优化。
+轻量级锁对使用者是透明的，即语法仍然是` synchronized`
+假设有两个方法同步块，利用同一个对象加锁
+
+```java
+static final Object obj = new Object();
+public static void method1() {
+	synchronized( obj ) {
+	// 同步块 A
+	method2();
+	}
+}
+public static void method2() {
+	synchronized( obj ) {
+	// 同步块 B
+	}
+}
+```
+
+执行方法1的时候，栈帧先创建一个锁记录（Lock Record）对象，每个线程都的栈帧都会包含一个锁记录的结，内部可以存储锁定对象的Mark Word。让锁记录中 Object reference 指向锁对象，并尝试用 cas 替换 Object 的 Mark Word，将 Mark Word 的值存入锁记录。
+
+如果替换成功，加锁。
+如果不成功，则有两种情况：
+如果是其它线程已经持有了该 Object 的轻量级锁，这时表明有竞争，进入锁膨胀过程。
+如果是自己执行了 synchronized 锁重入，那么再添加一条 Lock Record 作为重入的计数。
+当退出 synchronized 代码块（解锁时）如果有取值为 null 的锁记录，表示有重入，这时重置锁记录，表示重
+入计数减一
+
+当退出 synchronized 代码块（解锁时）锁记录的值不为 null，这时使用 cas 将 Mark Word 的值恢复给对象
+头，两种情况：
+成功，则解锁成功
+失败，说明轻量级锁进行了锁膨胀或已经升级为重量级锁，进入重量级锁解锁流程
+
+![image-20210606215410239](img/img/image-20210606215410239.png)
+
+#### 锁膨胀
+
+如果在尝试加轻量级锁的过程中，CAS 操作无法成功，这时一种情况就是有其它线程为此对象加上了轻量级锁（有竞争），这时需要进行锁膨胀，将轻量级锁变为重量级锁。
+
+```java
+static Object obj = new Object();
+public static void method1() {
+	synchronized( obj ) {
+	// 同步块
+	}
+}
+```
+
+锁膨胀，即，已有轻量级锁的情况下，再加轻量级锁：
+即为 Object 对象申请 Monitor 锁，让 Object 指向重量级锁地址，然后自己进入 Monitor 的 EntryList BLOCKED
+当 Thread-0 退出同步块解锁时，使用 cas 将 Mark Word 的值恢复给对象头，失败。这时会进入重量级解锁
+流程，即按照 Monitor 地址找到 Monitor 对象，设置 Owner 为 null，唤醒 EntryList 中 BLOCKED 线程
+
+#### 自旋
+
+重量级锁竞争的时候，还可以使用自旋来进行优化，如果当前线程自旋成功（即这时候持锁线程已经退出了同步
+块，释放了锁），这时当前线程就可以避免阻塞。
+
+自旋就是重复几次调用锁，如果几次后还是失败，该阻塞还是得阻塞。
+
+#### 偏向锁
