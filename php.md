@@ -567,3 +567,276 @@ $closure(); // 结果却输出了name，说明上一行并未释放局部变量
 // 3、匿名函数返回给外部使用。
 ```
 
+## 错误处理
+
+错误处理：指系统或用户在对某些代码进行执行的时候，发现有错误，就会通过错误处理的形式告诉程序员。
+
+### **错误分类**
+
+1、语法错误：书写代码不符合PHP语法规范，会导致代码在编译中不允许，故也不会执行（parseerror）；
+2、运行时错误：代码编译通过，但在执行时会出现一些条件不满足从而导致的错误。（runtime error取空数组的第几位数）
+3、逻辑错误：写代码不规范、但逻辑性错误，导致虽可正常运行，但得不到预期结果。
+
+### **错误代号**
+
+系统代号在PHP中均被定义为了系统常量，故可直接使用：
+1、系统错误（系统使用的代号）：
+E_PARSE：编译错误，代码不会运行
+E_ERROR：fatal error致命错误，会在出错的位置断掉
+E_WARNING：warning警告错误，不影响执行，但可能得不到预期结果
+E_NOTICE：notice，通知错误、不影响代码执行
+2、用户错误（用户使用的代号）：E_USER_ERROR、E_USER_WARNING、E_USER_NOTICE用户在使用自定义错误出发的时候，会使用道德错误代号。
+3、E_ALL：代表所有错误所有E开头的错误常量都由一个字节（8位）存储，且每一种错误占用一个位，故可进行位操作。
+排除通知级别notice：E_ALL & ~E_NOTICE 。。假设ALL全为1，那么与NOTICE取反再取与就可把其剔除
+只要警告和通知：E_WARNING | E_NOTICE
+
+### **错误触发**
+
+程序运行时触发：主要针对代码的语法错误和运行时错误。
+人为触发：知道某些逻辑可能会出错，从而使用对应的代码编号来判断
+
+```php
+<?php
+// php错误处理
+// 人为触发
+// 处理脚本让浏览器按照指定字符集解析
+// header('Content-type:text/html;charset=utf-8');
+$b = 0;
+if($b == 0)
+{
+	trigger_error('除数不能为0')
+}
+echo $a / $b;
+```
+
+
+
+## 字符串类型
+
+### 字符串定义
+
+1、引号定义:比较适合定义较短的或无结构要求的字符串
+
+```php
+$str1 = 'hello';
+$str2 = "hello";
+var_dump($str1,$str2); // 两种方式显示的结果一致
+```
+
+
+
+### 结构化定义
+
+ 2、heredoc字符串：没有单引号的单引号字符串
+
+```php
+$str3 = <<<EOD
+		HELLO
+		EOD;
+```
+
+3、nowdoc 结构
+
+```php
+$str4 = <<<'EOD' // eod只是边界符，可自己定义
+			hello
+			EOD;
+var_dump($str3,$str4);
+```
+
+### **转义字符串**
+
+\r：回车 \n：换行 \t:四个空格
+双引号内的字符串能够识别。
+
+### **双引号中变量识别规则：**
+
+```php
+$a = 'hello';
+$b = "avc{$a}a";
+```
+
+### **字符串长度问题**
+
+```php
+<?php
+header('Content-type:text/html;charset = utf-8');
+// 定义字符串
+$str1 = 'abcefjdoifaoi';
+$str2 = '你好中国123';
+echo strlen($str1),'<br/>',strlen($str2); // 13 15(中文在utf下占3个字节)
+// 多字节字符串的长度问题：包含中文的长度
+// 多字节字符串扩展模块：mbstring扩展(mb:Multi Bytes)
+// 首先需加载PHP的mbstring扩展（php.ini中去注释即可）
+// 使用mbstring
+echo mb_strlen($str1),'<br/>',mb_strlen($str2); // 13 15(与之前一致)
+// 长度并未改变，MBstring针对不同的字符集有不同的统计结果
+echo mb_strlen($str1),'<br/>',mb_strlen($str2),'<br/>',mb_string($str2,'utf-8'); //13 15 7
+```
+
+## 数组
+
+### 定义语法
+
+```php
+<?php
+// php数组：可以是一种或多种类型的数据，这与c++很不一样.类似于哈希表
+// 定义数组：array
+$arr1 = array('1',2,'hello');
+var_dump($arr1); // 结果：
+// array(3) ([0]=>string(1) "1" [1]=>int(2)[2]=>string(5) "hello")
+
+// 定义数组：[]
+$arr2 = ['1',2,'hello'];
+var_dump($arr2);
+// array(3) ([0]=>string(1) "1" [1]=>int(2) [2]=>string(5) "hello")
+
+// 定义数组：隐型数组
+$arr3[] = 1; // 默认给数组第0个元素赋值
+$arr3[10] = 100; // 第10个元素赋值
+$arr3[] = '1'; // 第11个。默认下标是从当前最大下标
+$arr3['key'] = 'key'; // 第key个
+$arr3[1] = 'value' // 第1个，但不会自动调整，还是会处于最后一个位置
+// 结果为：array(4) ([0]=>int(1) [10]=>int(100) [11]=>string(1) "1"["key"]=>string(3)"key" [1]=>string(5) "value")
+```
+
+### **php数组特点**
+
+1、可以整数下标或者字符串下标
+若数组下标均为整数，则称为索引数组
+若数组下标均为字符串，则称为关联数组。
+混合下标的话称为混合数组
+2、数组元素的顺序以放入顺序为准，与下标无关
+3、数字下标的增长特性：从0开始自动增长，若中间手动加入较大的下标，则后面则会从当前最大下标+1增长。
+4、特殊值下标的自动转换
+
+```php
+<?php
+// 特殊下标自动转换
+$arr1[false] = false;
+$arr1[true] = true;
+$arr1[NULL] = NULL;
+var_dump($arr1); // array(3)([0]=>bool(false),[1]=>bool(true) [""]->NULL)
+```
+
+5、PHP数组中类型元素没有限制。
+6、PHP中数组元素没有长度限制。类似于c++ vector
+补充：PHP中数组是很大的数据，故会存储在堆区。
+
+### 多维数组
+
+类似于C++ vector
+二维数组，数组中的所有元素都是一维数组。
+
+```php
+$info = array(
+	array("name" => "jim","age" => 30),
+	array("name" => "tom","age" => 31),
+    array("name" => "xiaoming","age" => 32)
+)
+```
+
+### 数组的遍历
+
+类似于JS
+
+```php
+$info = array(
+	array("name" => "jim","age" => 30),
+	array("name" => "tom","age" => 31),
+    array("name" => "xiaoming","age" => 32)
+);
+echo $info[0]["name"]; // tom
+```
+
+**foeach**
+
+```php
+<?php
+// 数组遍历 foreach
+$arr = array(1,2,3,4,5,6,7,8,9,10);
+// foreach
+foreach($arr as $a)
+{
+	echo $a,'<br/>'; // 依次输出
+}
+foreach($arr as $a => $v)
+{
+	echo 'key',$a,'== value',$v,'<br/>'; // 依次输出key0 == value1 等
+}
+
+// 二维数组
+$arr = array(
+	0 => array('name' =>'Tom','age' => 10),
+	1 => array('name' => 'Jim','age' => 11)
+);
+// 通过foreach遍历二维元素
+foreach($arr as $a)
+{
+	echo 'name is:',$a['name'],'age is:',$a['age'],'<br/>';
+// name is:TOM age is:10
+// name is:TOM age is:10
+}
+```
+
+**for**
+
+```php
+<?php
+// for循环遍历数组
+// 数组特点：1、索引数组 2、下标规律
+$arr = array(1,2,3,4,5,6,7,8);
+for($i = 0; $i<count($arr);$i++)
+{
+	echo 'key is:',$i,'value is:',$arr[$i];
+}
+```
+
+数组相关函数
+
+排序函数
+
+```php
+// 排序函数
+$arr = array(3,1,5,2,0);
+print_r(sort($arr)) // 结果为1
+print_r($arr); // 排序后，索引变为01234
+```
+
+指针函数(链表)
+
+```php
+// 指针函数
+//reset:将数组的内部指针指向第一个单元；
+//end():将数组指针指向最后一个元素；
+// next(): prev():指针上移
+//current():获取当前指针对应的元素值 
+//key()获取当前指针对应的key
+// 判断是否指针移动
+echo current($arr),'<br/>';
+echo key($arr),'<br/>'; //若是第一个元素。则当前数组指针未移动
+echo next($arr),next($arr),'<br/>'; //15
+echo prev($arr);//1
+// 注意事项：next，prev会移动指针，可能导致超出数组，此时再使用next、prev便不能再返回数组，只能通过end/reset
+```
+
+其他函数
+
+```php
+// 其他函数：count
+```
+
+栈/队列
+
+```php
+//前面array_shift(),array_unshift();
+//后面array_push(),array_pop();
+array_push($arr,3);
+array_push($arr,2);
+array_push($arr,1);
+
+array_pop($arr);
+```
+
+
+
