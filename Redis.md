@@ -28,6 +28,18 @@ Redis 与其他 key - value 缓存产品有以下三个特点
 
 ## 命令
 
+### Keys 命令
+
+| 命令               | 描述                                    |
+| ------------------ | --------------------------------------- |
+| DEL key            | 该命令用于在 key 存在时删除 key。       |
+| DUMP key           | 序列化给定 key ，并返回被序列化的值。   |
+| EXISTS key         | 检查给定 key 是否存在。                 |
+| EXPIRE key seconds | 为给定 key 设置过期时间，以秒计。       |
+| KEYS pattern       | 查找所有符合给定模式( pattern)的 key 。 |
+| PERSIST key        | 移除 key 的过期时间，key 将持久保持。   |
+| ...                | ...                                     |
+
 ### String（字符串）
 
 ```sql
@@ -40,6 +52,16 @@ GET redis
 ```
 
 一个键最大能存储512mb
+
+| 命令                   | 描述                                                       |
+| ---------------------- | ---------------------------------------------------------- |
+| SET key value          | 设置指定 key 的值                                          |
+| GET key                | 获取指定 key 的值。                                        |
+| GETRANGE key start end | 返回 key 中字符串值的子字符                                |
+| GETSET key value       | 将给定 key 的值设为 value ，并返回 key 的旧值(old value)。 |
+| MGET key1 [key2..]     | 获取所有(一个或多个)给定 key 的值。                        |
+| SETNX key value        | 只有在 key 不存在时设置 key 的值。                         |
+| ...                    | ...                                                        |
 
 ### Hash（哈希）
 
@@ -100,3 +122,80 @@ redis 127.0.0.1:6379> LRANGE runoobkey 0 10
 | LPUSH key value1 [value2]             | 将一个或多个值插入到列表头部                                 |
 | ...                                   | ...                                                          |
 
+### 集合(Set)
+
+Redis 的 Set 是 String 类型的无序集合。集合成员是唯一的，这就意味着集合中不能出现重复的数据。
+
+集合对象的编码可以是 intset 或者 hashtable。
+
+
+
+Redis 中集合是通过哈希表实现的，所以添加，删除，查找的复杂度都是 O(1)。
+
+集合中最大的成员数为 2^(32) - 1 (4294967295, 每个集合可存储40多亿个成员)。
+
+```sql
+redis 127.0.0.1:6379> SADD runoobkey redis
+(integer) 1
+redis 127.0.0.1:6379> SADD runoobkey mongodb
+(integer) 1
+redis 127.0.0.1:6379> SADD runoobkey mysql
+(integer) 1
+redis 127.0.0.1:6379> SADD runoobkey mysql
+(integer) 0
+redis 127.0.0.1:6379> SMEMBERS runoobkey
+
+1) "mysql"
+2) "mongodb"
+3) "redis"
+```
+
+| 命令                       | 描述                                 |
+| -------------------------- | ------------------------------------ |
+| SADD key member1 [member2] | 向集合添加一个或多个成员             |
+| SCARD key                  | 获取集合的成员数                     |
+| SDIFF key1 [key2]          | 返回第一个集合与其他集合之间的差异。 |
+| SMEMBERS key               | 返回集合中的所有成员                 |
+| SPOP key                   | 移除并返回集合中的一个随机元素       |
+| SREM key member1 [member2] | 移除集合中一个或多个成员             |
+| ...                        | ...                                  |
+
+### 有序集合(sorted set)
+
+Redis 有序集合和集合一样也是 string 类型元素的集合,且不允许重复的成员。
+
+不同的是每个元素都会关联一个 double 类型的分数。redis 正是通过分数来为集合中的成员进行从小到大的排序。
+
+有序集合的成员是唯一的,但分数(score)却可以重复。
+
+集合是通过哈希表实现的，所以添加，删除，查找的复杂度都是 O(1)。 集合中最大的成员数为 2^(32) - 1 (4294967295, 每个集合可存储40多亿个成员)。
+
+```sql
+redis 127.0.0.1:6379> ZADD runoobkey 1 redis
+(integer) 1
+redis 127.0.0.1:6379> ZADD runoobkey 2 mongodb
+(integer) 1
+redis 127.0.0.1:6379> ZADD runoobkey 3 mysql
+(integer) 1
+redis 127.0.0.1:6379> ZADD runoobkey 3 mysql
+(integer) 0
+redis 127.0.0.1:6379> ZADD runoobkey 4 mysql
+(integer) 0
+redis 127.0.0.1:6379> ZRANGE runoobkey 0 10 WITHSCORES
+
+1) "redis"
+2) "1"
+3) "mongodb"
+4) "2"
+5) "mysql"
+6) "4"
+```
+
+| 命令                                     | 描述                                                   |
+| ---------------------------------------- | ------------------------------------------------------ |
+| ZADD key score1 member1 [score2 member2] | 向有序集合添加一个或多个成员，或者更新已存在成员的分数 |
+| ZCARD key                                | 获取有序集合的成员数                                   |
+| ZCOUNT key min max                       | 计算在有序集合中指定区间分数的成员数                   |
+| ZINCRBY key increment member             | 有序集合中对指定成员的分数加上增量 increment           |
+| ZLEXCOUNT key min max                    | 在有序集合中计算指定字典区间内成员数量                 |
+| ...                                      | ...                                                    |
