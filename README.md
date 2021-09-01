@@ -18,7 +18,7 @@
 觉得C麻烦的可以看看Python，但是我好像没写啥。。
 
 [Python](./Python.md)
-很简单的一种语言。用起来特别（简单）吐血，反正我是吐血了，报错总是报错在奇怪的地方，如果你用了 jupyter notebook 你就会知道我在说啥。
+很简单的一种语言。用起来特别简单，但是报错总是报错在奇怪的地方，如果你用了 jupyter notebook 你会知道我在说啥。
 
 [正则表达式](./RegEx.md)
 有个古老的传说，如果你有一个问题需要用到正则表达式，那么，现在你有两个问题了（笑死
@@ -61,6 +61,8 @@ java SpringBoot框架，写了一半。
 [php](./php.md) 
 php是世界上最好的语言！！
 
+nginx
+
 ## 后端进阶
 
 [back-end](./Back-EndDevelop.md) 
@@ -73,11 +75,14 @@ php是世界上最好的语言！！
 [redis](./Redis.md) 
 其实redis也可以作为缓存，但是他可以讲的地方
 
-[kafka](./Kafka.md) 
-消息队列 //没写完
-
 [MongoDB](./MongoDB.md) 
 nosql，redis也是nosql，但是mongo更像是DB //感觉写的怪怪的。
+
+[ElasticSearch](./Elasticsearch.md)
+Nosql，强大的搜索引擎。
+
+[kafka](./Kafka.md) 
+消息队列 //没写完
 
 ## 人工智能
 
