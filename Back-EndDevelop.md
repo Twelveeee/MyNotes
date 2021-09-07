@@ -244,3 +244,138 @@ LVS：运行在内核态，性能是软件负载均衡中最高的，严格来�
 **6.直接路由**
 (Direct Routing，简称 DR)通过修改目的 MAC 地址实现负载均衡。DR 属于四层负载均衡。
 负载均衡器收到用户数据包后，根据算法选出后端服务器，，把数据包的mac地址改为服务器的mac地址，发送出去，交换机识别mac地址，把数据交给服务器，服务器返回数据给客户端。
+
+# SQL优化
+
+**explain**
+
+通过关键字 explain 可以分析出：
+表的读取顺序
+表的读取操作的读取类型
+哪些索引有可能会被使用到
+哪些索引被实际使用了
+表之间的引用
+每张表有多少行被优化器查询
+
+```sql
+mysql> explain     
+		->   	 select count(p.id) from  payment p
+    ->     left join supplier_balance_flow s
+    ->     on p.id = s.paymentItemId
+    ->     where
+    ->         s.paymentItemId is null  and
+    ->         p.stat = 0 and
+    ->         p.paymentType = 'PRE_PAYMENT';
++----+-------------+-------+------------+------+---------------+------+---------+------+-------+----------+----------------------------------------------------------------+
+| id | select_type | table | partitions | type | possible_keys | key  | key_len | ref  | rows  | filtered | Extra                                                          |
++----+-------------+-------+------------+------+---------------+------+---------+------+-------+----------+----------------------------------------------------------------+
+|  1 | SIMPLE      | p     | NULL       | ALL  | NULL          | NULL | NULL    | NULL | 26339 |   100.00 | Using where                                                    |
+|  1 | SIMPLE      | s     | NULL       | ALL  | NULL          | NULL | NULL    | NULL |  1259 |   100.00 | Using where; Not exists; Using join buffer (Block Nested Loop) |
++----+-------------+-------+------------+------+---------------+------+---------+------+-------+----------+----------------------------------------------------------------+
+```
+
+字段解释：
+**id** - id值越大，就越先被MySQL执行，如果id相同的话 可以认为是同一组，按照从上到下顺序执行。
+
+**select_type** - 查询类型，是简单查询、子查询、主键查询等，具体类型如下：
+`SIMPLE`（简单的SELECT语句）
+`PRIMARY`（查询中最外层的SELECT）
+`UNION`（查询中处于内层的SELECT）
+`DEPENDENT UNION`（UNION操作中，查询中处于内层的SELECT）
+`UNIOIN RESULT`（UNION操作的结果，id值通常为NUL）
+`SUBQUERY`（子查询中首个SELECT）
+`DEPENDENT SUBQUERY`(严重消耗性能)（子查询中首个SELECT，但依赖于外层的表）
+`DERIVED`（被驱动的SELECT子查询）
+`MATERIALIZED`（被物化的子查询）
+`UNCACHEABLE SUBQUERY`（对于外层的主表，子查询不可被物化，每次都需要计算）
+`UNCACHEABLE UNION`（UNION操作中，内层的不可被物化的子查询）
+
+**table** - 该行所引用的表名
+
+**type** - 显示了查询使用到了那种类型，从最优的查询到最差的排序为：
+`System-->const-->eq_ref-->ref-->ref_or_null-->index_merge-->unique_subquery-->index_subquery-->range-->index-->all(全表扫描)`
+
+**possible_key** - 能会用到那些索引在该表中找到行级记录
+
+**key** - 实际从 possible_key 选择使用的索引。如果为 NULL,则没有使用索引。很少的情况 下,MYSQL 会选择优化不足的索引。这种情 况下,可以在 SELECT语句中使用 USE INDEX (indexname)来强制使用一个索引或者用IGNORE INDEX(indexname)来强制 MYSQL 忽略索引.
+
+**key_len** - 使用的索引的长度。在不损失精确性的情况下,长度越短越好。
+
+**ref** - 显示索引的哪一列被使用了，如果可能的话，是一个常数，哪些列或者常量被用于查找索引列上的值。
+
+**rows** - 显示MySQL认为它执行查询时必须检查的行数。多行之间的数据相乘可以估算要处理的行数。
+
+**filtered** - 显示了通过条件过滤出的行数的百分比估计值。
+
+**Extra** - 就是除了以上MySQL要展示的重要的信息之外的一个附加信息，一般四种情况
+`Using filesort\ Using temporary\ Using index\ Not exists`
+
+key、type 、rows、extra，其中 key 为 null 时，说明没有使用到索引，需要调整索引，type为all的地方,都是需要进行优化的地方.一般需要达到 ref级别，范围查找需要达到 range，extra有Using filesort、Using temporary 的一定需要优化，根据rows可以直观看出优化结果。
+
+**Sql 执行顺序**
+
+select语法顺序
+
+```sql
+SELECT  
+DISTINCT <select_list> 
+FROM <left_table> 
+<join_type> JOIN <right_table> 
+ON <join_condition> 
+WHERE <where_condition> 
+GROUP BY <group_by_list> 
+HAVING <having_condition> 
+ORDER BY <order_by_condition> 
+LIMIT <limit_number> 
+```
+
+select执行顺序
+
+```sql
+FROM 
+<表名> # 选取表，将多个表数据通过笛卡尔积变成一个表。 
+ON 
+<筛选条件> # 对笛卡尔积的虚表进行筛选 
+JOIN <join, left join, right join...>  
+<join表> # 指定join，用于添加数据到on之后的虚表中，例如left join会将左表的剩余数据添加到虚表中 
+WHERE 
+<where条件> # 对上述虚表进行筛选 
+GROUP BY 
+<分组条件> # 分组 
+<SUM()等聚合函数> # 用于having子句进行判断，在书写上这类聚合函数是写在having判断里面的 
+HAVING 
+<分组筛选> # 对分组后的结果进行聚合筛选 
+SELECT 
+<返回数据列表> # 返回的单列必须在group by子句中，聚合函数除外 
+DISTINCT 
+# 数据除重 
+ORDER BY 
+<排序条件> # 排序 
+LIMIT 
+<行数限制> 
+```
+
+**避免不走索引**
+
+1.in是走索引的，但是得评估in后面元素的集合，控制在1000以内，避免笛卡尔积。
+2.范围搜索是走索引的。
+3.不要在开头模糊搜索
+4.反向条件不走索引` != 、 <> 、 NOT IN、IS NOT NULL`
+
+```sql
+-- 常见的对not in的优化，使用左连接加上is null的条件过滤
+SELECT id, username, age FROM tbl_user WHERE id NOT IN (SELECT user_id FROM tbl_order);
+
+SELECT
+u.id, u.username, u.age
+FROM tbl_user u
+LEFT JOIN tbl_order o ON u.id = o.user_id
+WHERE o.user_id IS NULL;
+```
+
+5.对条件计算(使用函数或者算数表达式)不走索引
+比如`where id/10=123  ` , `where createtime < NOW()`
+
+6.查询时必须使用正确的数据类型
+7.or 只有两边都有索引才走索引
+
