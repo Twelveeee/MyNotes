@@ -840,3 +840,200 @@ array_pop($arr);
 
 
 
+# Composer
+
+## 安装
+
+先升级包管理器
+
+```bash
+sudo apt update
+```
+
+然后下载需要的一些软件
+
+```bash
+sudo apt install php-cli unzip
+```
+
+用`curl`下载东西
+
+```bash
+cd ~
+curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+```
+
+检测一下sha-384，没啥用但是挺好玩。
+
+```bash
+HASH=`curl -sS https://composer.github.io/installer.sig`
+```
+
+```bash
+echo $HASH
+
+# Output
+# e0012edf3e80b6978849f5eff0d4b4e4c79ff1609dd1e613307e16318854d24ae64f26d17af3ef0bf7cfb710ca74755a
+```
+
+```bash
+php -r "if (hash_file('SHA384', '/tmp/composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+
+# Output
+# Installer verified
+```
+
+安装`compser` 用php直接安装，可以设置路径和文件名。
+
+```bash
+sudo php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+```
+
+安装完了运行
+
+```bash
+composer
+```
+
+```bash
+# Output
+   ______
+  / ____/___  ____ ___  ____  ____  ________  _____
+ / /   / __ \/ __ `__ \/ __ \/ __ \/ ___/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ (__  )  __/ /
+\____/\____/_/ /_/ /_/ .___/\____/____/\___/_/
+                    /_/
+Composer version 1.10.5 2020-04-10 11:44:22
+
+Usage:
+  command [options] [arguments]
+
+Options:
+  -h, --help                     Display this help message
+  -q, --quiet                    Do not output any message
+  -V, --version                  Display this application version
+      --ansi                     Force ANSI output
+      --no-ansi                  Disable ANSI output
+  -n, --no-interaction           Do not ask any interactive question
+      --profile                  Display timing and memory usage information
+      --no-plugins               Whether to disable plugins.
+  -d, --working-dir=WORKING-DIR  If specified, use the given directory as working directory.
+      --no-cache                 Prevent use of the cache
+  -v|vv|vvv, --verbose           Increase the verbosity of messages: 1 for normal output, 2 for more verbose output and 3 for debug
+...
+```
+
+
+
+## Demo
+
+以`slugify`为例  也可以去https://packagist.org/找其他的插件
+
+初始化composer
+
+```bash
+mkdir composer
+cd composer
+composer init
+```
+
+会自己创建一个`composer.json`文件
+
+```bash
+composer require cocur/slugify
+```
+
+```bash
+#Output
+Using version ^4.0 for cocur/slugify
+./composer.json has been updated
+Loading composer repositories with package information
+Updating dependencies (including require-dev)
+Your requirements could not be resolved to an installable set of packages.
+
+  Problem 1
+    - Installation request for cocur/slugify ^4.0 -> satisfiable by cocur/slugify[v4.0.0].
+    - cocur/slugify v4.0.0 requires ext-mbstring * -> the requested PHP extension mbstring is missing from your system.
+...
+```
+
+报错，说需要PHP extension mbstring
+
+```bash
+sudo apt install php-mbstring
+```
+
+重新安装
+
+```bash
+composer require cocur/slugify
+```
+
+```bash
+#Output
+Using version ^4.0 for cocur/slugify
+./composer.json has been created
+Loading composer repositories with package information
+Updating dependencies (including require-dev)
+Package operations: 1 install, 0 updates, 0 removals
+  - Installing cocur/slugify (v4.0.0): Downloading (100%)         
+Writing lock file
+Generating autoload files
+```
+
+然后会生成文件
+
+```bash
+ls -l
+
+#output
+drwxrwxr-x 4 work work 4096 Nov 23 12:06 ./
+drwxrwxr-x 3 work work 4096 Nov 23 11:48 ../
+-rw-rw-r-- 1 work work  198 Nov 23 11:49 composer.json
+-rw-rw-r-- 1 work work 3114 Nov 23 11:49 composer.lock
+drwxrwxr-x 2 work work 4096 Nov 23 11:48 src/
+drwxrwxr-x 4 work work 4096 Nov 23 12:08 vendor/
+```
+
+`composer.lock`是用来储存已经安装的包信息的。如果别人clone了这个项目，可以通过这个文件来确保你们的依赖一致。
+`vendor`存放已经安装的包的文件。
+
+```bash
+cat composer.json
+
+{
+    "name": "work/src",
+    "description": "test",
+    "require": {
+        "cocur/slugify": "^3.0"
+    }
+}
+```
+
+```bash
+vim test.php
+```
+
+```php
+<?php
+require __DIR__.'/vendor/autoload.php';
+
+use Cocur\Slugify\Slugify;
+$slugify = new Slugify();
+
+echo $slugify->slugify('hello world');
+```
+
+```bash
+php test.php
+
+#output
+hello-world
+```
+
+升级composer插件的命令
+
+```bash
+composer update vendor/package vendor2/package2
+```
+
