@@ -745,7 +745,7 @@ public static void method2() {
 成功，则解锁成功
 失败，说明轻量级锁进行了锁膨胀或已经升级为重量级锁，进入重量级锁解锁流程
 
-![image-20210606215410239](img/img/image-20210606215410239.png)
+![image-20210606215410239](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210606215410239.png)
 
 #### 锁膨胀
 

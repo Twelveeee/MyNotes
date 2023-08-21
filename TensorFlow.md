@@ -24,7 +24,7 @@
 
 ### Optimization 
 
-[![神经网络 梯度下降](https://morvanzhou.github.io/static/results/ML-intro/gd2.png)](https://morvanzhou.github.io/static/results/ML-intro/gd2.png)
+[![神经网络 梯度下降](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd2.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd2.png)
 
 学习机器学习的同学们常会遇到这样的图像, 我了个天, 看上去好复杂, 哈哈, 不过还挺好看的. 这些和我们说的梯度下降又有什么关系呢? 原来这些图片展示出来了一个家族的历史, 这个家族的名字就是-”optimization” (优化问题). 优化能力是人类历史上的重大突破, 他解决了很多实际生活中的问题. 从而渐渐演化成了一个庞大的家族.
 
@@ -32,17 +32,17 @@
 
 ### 梯度下降 
 
-[![神经网络 梯度下降](https://morvanzhou.github.io/static/results/ML-intro/gd3.png)](https://morvanzhou.github.io/static/results/ML-intro/gd3.png)
+[![神经网络 梯度下降](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd3.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd3.png)
 
 初学神经网络的时候, 我们通常会遇到这样一个方程, 叫做误差方程 (Cost Function). 用来计算预测出来的和我们实际中的值有多大差别. 在预测数值的问题中, 我们常用平方差 (Mean Squared Error) 来代替. 我们简化一下这个方程, W是我们神经网络中的参数, x, y 都是我们的数据, 因为 xy 都是实实在在的数据点, 在这个假设情况中, 是多少都无所谓, 然后我们再厚颜无耻地像这样继续简化一下, (注意, 这个过程在在数学中并不正确, 不过我们只是为了看效果), 所以现在误差值曲线就成了这样. 假设我们初始化的 W 在这个位置. 而这个位置的斜率是这条线, 这也就是梯度下降中的梯度啦. 我们从图中可以看出, Cost 误差最小的时候正是这条 cost 曲线最低的地方, 不过在蓝点的 W 却不知道这件事情, 他目前所知道的就是梯度线为自己在这个位置指出的一个下降方向, 我们就要朝着这个蓝色梯度的方向下降一点点. 在做一条切线, 发现我还能下降, 那我就朝着梯度的方向继续下降, 这时, 再展示出现在的梯度, 因为梯度线已经躺平了, 我们已经指不出哪边是下降的方向了, 所以这时我们就找到了 W 参数的最理想值. 简而言之, 就是找到梯度线躺平的点. 可是神经网络的梯度下降可没这么简单.
 
-[![神经网络 梯度下降](https://morvanzhou.github.io/static/results/ML-intro/gd4.png)](https://morvanzhou.github.io/static/results/ML-intro/gd4.png)
+[![神经网络 梯度下降](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd4.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd4.png)
 
 神经网络中的 W 可不止一个, 如果只有一个 W, 我们就能画出之前那样的误差曲线, 如果有两个 W 也简单, 我们可以用一个3D 图来展示, 可是超过3个 W, 我们可就没办法很好的可视化出来啦. 这可不是最要命的. 在通常的神经网络中, 误差曲线可没这么优雅.
 
 ### 全局 and 局部最优 
 
-[![神经网络 梯度下降](https://morvanzhou.github.io/static/results/ML-intro/gd5.png)](https://morvanzhou.github.io/static/results/ML-intro/gd5.png)
+[![神经网络 梯度下降](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd5.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/gd5.png)
 
 在简化版的误差曲线中, 我们只要找到梯度线躺平的地方, 就能能迅速找到误差最小时的 W. 可是很多情况是这样的, 误差曲线并不只有一个沟, 而且梯度躺平的点也不止一个. 不同的 W 初始化的位置, 将会带来不同的下降区域. 不同的下降区域, 又会带来不同的 W 解. 在这个图像当中, W 的全局最优解(Global minima)在这个位置, 而其它的 解都是局部最优(Local minima). 全局最优固然是最好, 但是很多时候, 你手中的都是一个局部最优解, 这也是无可避免的. 不过你可以不必担心, 因为虽然不是全局最优, 但是神经网络也能让你的局部最优足够优秀, 以至于即使拿着一个局部最优也能出色的完成手中的任务.
 
@@ -54,11 +54,11 @@
 
 本例中蓝色离散点是我们的数据点, 红线是通过神经网络算法拟合出来的曲线,
 
-[![神经网络在干嘛](https://morvanzhou.github.io/static/results/tensorflow/1_3_1.png)](https://morvanzhou.github.io/static/results/tensorflow/1_3_1.png)
+[![神经网络在干嘛](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/1_3_1.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/1_3_1.png)
 
 它是对我们数据点的一个近似表达. 可以看出, 在开始阶段, 红线的表达能力不强, 误差很大. 不过通过不断的学习, 预测误差将会被降低. 所以学习到后来. 红线也能近似表达出数据的样子.
 
-[![神经网络在干嘛](https://morvanzhou.github.io/static/results/tensorflow/1_3_2.png)](https://morvanzhou.github.io/static/results/tensorflow/1_3_2.png)
+[![神经网络在干嘛](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/1_3_2.png)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/1_3_2.png)
 
 ### 拟合参数 
 
@@ -86,7 +86,7 @@
 
 Tensorflow 首先要定义神经网络的结构, 然后再把数据放入结构当中去运算和 training.
 
-[![处理结构](https://www.tensorflow.org/images/tensors_flowing.gif)](https://www.tensorflow.org/images/tensors_flowing.gif)
+[![处理结构](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/tensors_flowing.gif)](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/tensors_flowing.gif)
 
 因为TensorFlow是采用数据流图（data　flow　graphs）来计算, 所以首先我们得创建一个数据流流图, 然后再将我们的数据（数据以张量(tensor)的形式存在）放在数据流图中计算. 节点（Nodes）在图中表示数学操作,图中的线（edges）则表示在节点间相互联系的多维数据数组, 即张量（tensor). 训练模型时tensor会不断的从数据流图中的一个节点flow到另一节点, 这就是TensorFlow名字的由来.
 
@@ -338,7 +338,7 @@ v2貌似已经换掉了placeholder ，看到我再添加。
 10个类别
 28*28像素
 训练神经元网络
-![image-20201209220451516](img/TensorFlow/image-20201209220451516.png)
+![image-20201209220451516](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201209220451516.png)
 
 ```python
 import tensorflow as tf
@@ -358,13 +358,13 @@ plt.imshow(train_images[1])
 
 ```
 
-![image-20201209220813905](img/TensorFlow/image-20201209220813905.png)
+![image-20201209220813905](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201209220813905.png)
 
 ## 构建神经元网络模型
 
-![image-20201209220900053](img/TensorFlow/image-20201209220900053.png)
+![image-20201209220900053](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201209220900053.png)
 
-![image-20201209220929783](img/TensorFlow/image-20201209220929783.png)
+![image-20201209220929783](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201209220929783.png)
 
 全连接的网络结构
 
@@ -422,7 +422,7 @@ plt.imshow(test_images[0])
 
 ## 自动终止训练
 
-![image-20201210194942305](img/TensorFlow/image-20201210194942305.png)
+![image-20201210194942305](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210194942305.png)
 
 ```python
 #重载一个callback方法
@@ -463,7 +463,7 @@ Epoch 2/5
 大部分的图片并不是正正方方摆好的，会有些偏移，这时候全连接的计算机视觉就不太好使了。
 他是识别物品的特征，来判断物品的；
 
-![image-20201210200313433](img/TensorFlow/image-20201210200313433.png)
+![image-20201210200313433](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210200313433.png)
 
 
 
@@ -471,15 +471,15 @@ Epoch 2/5
 
 不同的filter会有不同的效果
 
-![image-20201210200607255](img/TensorFlow/image-20201210200607255.png)
+![image-20201210200607255](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210200607255.png)
 
-![image-20201210200657614](img/TensorFlow/image-20201210200657614.png)
+![image-20201210200657614](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210200657614.png)
 
 每次卷积完了之后还要再做一个Max Pooling，他的作用是增强图像的特征，如下是取最大值，最后就剩下一个2x2的矩阵
 
-![image-20201210200734124](img/TensorFlow/image-20201210200734124.png)
+![image-20201210200734124](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210200734124.png)
 
-![image-20201210200907168](img/TensorFlow/image-20201210200907168.png)
+![image-20201210200907168](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210200907168.png)
 
 Max Pooling以后数据减少了，但是特征增强了。卷积的材料可以看https://bit.ly/2UGa7uH
 
@@ -562,23 +562,23 @@ pred[0][0,:,:,1]
 ```
 
 第0层，conv2d，filter=1
-![](img/TensorFlow/image-20201210214820333.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210214820333.png)
 第1层，max_pooling2d，filter=1
-![image-20201210215457034](img/TensorFlow/image-20201210215457034.png)
+![image-20201210215457034](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215457034.png)
 第2层，conv2d_1，filter =1
-![image-20201210215623822](img/TensorFlow/image-20201210215623822.png)
+![image-20201210215623822](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215623822.png)
 第3层，max_pooling2d_1，filter=1
-![image-20201210215648245](img/TensorFlow/image-20201210215648245.png)
+![image-20201210215648245](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215648245.png)
 
 第4层，flatten
-![image-20201210215701092](img/TensorFlow/image-20201210215701092.png)
+![image-20201210215701092](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215701092.png)
 第5层，dense
-![image-20201210215709794](img/TensorFlow/image-20201210215709794.png)
+![image-20201210215709794](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215709794.png)
 第6层，dense_1，一共6层，输出预测结果
-![image-20201210215719873](img/TensorFlow/image-20201210215719873.png)
+![image-20201210215719873](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215719873.png)
 
 第0层，filter=50，不同filter的样子
-![image-20201210215805919](img/TensorFlow/image-20201210215805919.png)
+![image-20201210215805919](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201210215805919.png)
 
 # 更复杂的图像应用
 
@@ -663,7 +663,7 @@ for i, img_path in enumerate(next_horse_pix+next_human_pix):
 plt.show()
 ```
 
-![image-20201213213800322](img/TensorFlow/image-20201213213800322.png)
+![image-20201213213800322](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20201213213800322.png)
 
 ## ImageDataGenerator
 

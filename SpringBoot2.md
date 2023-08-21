@@ -71,7 +71,7 @@ https://spring.io/projects/spring-boot
 
 - SpringBoot + SpringCloud
 
-  ![image-20210116165007430](img/img/image-20210116165007430.png)
+  ![image-20210116165007430](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210116165007430.png)
 
 **云原生**
 

@@ -1063,7 +1063,7 @@ k=3(i-1)-1+j-i+1=2i+j-3
 
 例：
 
-![](img\dataStructure\20200510200854.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200510200854.png)
 
 ```c
 typedef struct{
@@ -1085,7 +1085,7 @@ down:用于链接同一列中的下一个非零元素。
 
 在十字链表中,同一行的非零元素通过 right 域链接成一个单链表。同一列的非零元素通 过 down 域链接成一个单链表。这样,矩阵中任一非零元素 M[ i][ j]所对应的结点既处在第 i 行的行链表上,又处在第 j 列的列链表上,这好像是处在一个十字交叉路口上,所以称其为十字 链表。同时再附设一个存放所有行链表的头指针的一维数组和一个存放所有列链表的头指针 的一维数组。
 
-![](\img\dataStructure\20200510201155.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200510201155.png)
 
 ```c
 typedef struct OLNode{
@@ -1216,7 +1216,7 @@ typedef struct GLNode{
 
 A=(a,(b,c))例子：
 
-![](\img\dataStructure\20200510211256.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200510211256.png)
 
 
 
@@ -1234,7 +1234,7 @@ typedef struct GLNode{
 } GLNode，*GList;
 ```
 
-![](.\img\dataStructure\20200510211508.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200510211508.png)
 
 3.运算
 
@@ -1340,19 +1340,19 @@ typedef struct CSNode{
 1.树转换为二叉树
 ⑴ 树中所有相邻兄弟之间加一条连线。 
 ⑵ 对树中的每个结点，只保留其与第一个孩子结点之间的连线， 删去其与其他孩子结点之间的连线。 
-⑶ 以树的根结点为轴心，将整棵树顺时针旋转一定的角度，使之结构层次分明。 树做这样的转换所构成的二叉树是惟一的。![](.\img\dataStructure\20200512000212.png)
+⑶ 以树的根结点为轴心，将整棵树顺时针旋转一定的角度，使之结构层次分明。 树做这样的转换所构成的二叉树是惟一的。![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200512000212.png)
 
 2.二叉树还原为树或森林 
 (1)若某结点是其双亲的左孩子，则把该结点的右孩子、右孩子的右孩子、……都与 该结点的双亲结点用线连起来。 
 (2)删掉原二叉树中所有双亲结点与右孩子结点的连线。 
 (3)整理由前两步所得到的树或森林，使之结构层次分明。
-![](.\img\dataStructure\20200512001125.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200512001125.png)
 
 3.森林转换为二叉树
 (1)将森林中的每棵树转换成相应的二叉树。
 (2) 第一棵二叉树不动，从第二棵二叉树开始，依次把后一棵二叉树的根结点作为前 一棵二叉树根结点的右孩子，当所有二叉树连在一起后，所得到的二叉树就是由 森林转换得到的二叉树。
 
-![](.\img\dataStructure\20200512001746.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200512001746.png)
 
 6.树与森林的遍历
 
@@ -1406,7 +1406,7 @@ void RootFirst(CSTree root){
 ② 后序遍历除去第一棵树之后剩余的树构成的森林。 
 ③访问第一棵树的根结点。 例如，右图中森林的后序遍历序列为 DCBFJIHGEA。
 
-![](.\img\dataStructure\20200512003237.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200512003237.png)
 
 ## 二叉树
 
@@ -1456,7 +1456,7 @@ void RootFirst(CSTree root){
 
 用一组连续的存储单元存放二叉树中的结点
 
-![](\img\dataStructure\20200511121657.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200511121657.png)
 
 优点：适用于满二叉树和完全二叉树，按结点从上至下，从左到右顺序存放，结点序号唯一反映出结点间逻辑关系，又可用数组下标值确定结点位置。
 
@@ -1763,7 +1763,7 @@ void CrtHuffmanTree(HuffmanTree ht, int w[ ], int n){
 }
 ```
 
-![](.\img\dataStructure\20200512221349.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200512221349.png)
 
 ### 哈夫曼编码
 
@@ -1858,7 +1858,7 @@ E(G)=(D1+D2+….+Dn)/2
 
 1)基本思想
 用一维数组存储图的顶点，用矩阵(二维数组)表示图中各顶点之间的邻接关系。
-![](.\img\dataStructure\20200513151920.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200513151920.png)
 
 2)邻接矩阵表示法的 C 语言描述如下
 
@@ -1938,7 +1938,7 @@ typedef struct{
 }AdjList; /*基于邻接表的图(Adjacency List Graph)*/
 ```
 
-![](.\img\dataStructure\20200513161400.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200513161400.png)
 
 3.十字链表
 1)定义
@@ -1948,7 +1948,7 @@ typedef struct{
 顶点节点 data|| 链域firstin
 弧结点 弧尾结点(tailvex) | 弧头结点(headvex) | 头的下一条弧(hlink) |尾的下一条弧 (tlink)
 
-![](.\img\dataStructure\20200513162302.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200513162302.png)
 
 4.邻接多重表
 
@@ -2091,7 +2091,7 @@ void DFS_path(Graph *G, int u, int v){
 Prim算法的思想是，从所有u∈U，v∈V－U的边中，选取具有最小权值的边(u，v)，将顶点v加入集合U中，将边(u，v)加入集合T中，如此不断重复，直到U＝V时，最小生成树构造完毕，这时集合T中包含了最小生成树的所有边。
 通俗来讲就是，根目录下，找到每一个权值最小的边，把边连接起来，不要相互连通。
 
-![](.\img\dataStructure\20200514232533.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200514232533.png)
 
 ```c
 struct {
@@ -2130,7 +2130,7 @@ void MiniSpanTree_Prim(AdjMatrix gn, VertexData u){
 ①首先构造一个只有n个顶点但没有边的非连通图T={V, },图中每个顶点自成一个连通分量。
 ②当在边集 E 中选到一条具有最小权值的边时,若该边的两个顶点落在T中不同的连通分量上，则将此边加入到生成树的边集合T 中；否则将此边舍去，重新选择一条权值最小的边。
 ③如此重复下去，直到所有顶点在同一个连通分量上为止。此时的T即为所求。
-![](.\img\dataStructure\20200514232913.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200514232913.png)
 
 ## 5.有向无环图应用
 
@@ -2426,7 +2426,7 @@ int SeqSearch(RecordList l, KeyType k){
 
 用平均查找长度（ASL）分析顺序查找算法的性能。假设列表长度为 n，那么查找第 i 个数据元素时需进行 n-i+1 次比较，即 Ci=n-i+1。又假设查找每个数据元素的概率相等，即 Pi=1/n，则顺序查找算法的平均查找长度为：
 
-![](.\img\dataStructure\20200520235724.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200520235724.png)
 
 ### 2.折半查找法
 
@@ -2453,7 +2453,7 @@ int BinSrch （RecordList l, KeyType k）{
 }
 ```
 
-![](.\img\dataStructure\20200520235852.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200520235852.png)
 
 **行能分析：**
 折半查找方法的优点是比较次数少，查找速度快，平均性能好；其缺点是要求待查表为有序表，且插入删除困难。因此，折半查找方法适用于不经常变动而查找频繁的有序列表。
@@ -2465,7 +2465,7 @@ int BinSrch （RecordList l, KeyType k）{
 分块查找法要求将列表组织成以下索引顺序结构：
 首先将列表分成若干个块（子表）。一般情况下，块的长度均匀，最后一块可以不满。每块中元素任意排列，即块内无序，但块与块之间有序。
 构造一个索引表。其中每个索引项对应一个块并记录每块的起始位置，以及每块中的最大关键字（或最小关键字）。索引表按关键字有序排列。
-![](.\img\dataStructure\20200521001329.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521001329.png)
 
 分块查找的基本过程如下：
 ⑴首先，将待查关键字 K 与索引表中的关键字进行比较，以确定待查记录所在的块。具体的可用顺序查找法或折半查找法进行。
@@ -2502,7 +2502,7 @@ typedef struct node{
 
 举例：记录的关键码序列为：63，90，70，55，67，42，98，83，10，45，58，则构造一棵二叉排序树的过程如下：
 即：先读入第一个结点作为根，然后读入第二结点，若第二个结点值大于根，则作根的右子树，否则作左子树…
-![](.\img\dataStructure\20200521004635.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521004635.png)
 
 对二叉排序树进行中序遍历，便可得到一个按关键码有序的序列
 
@@ -2728,7 +2728,7 @@ H (key)= H (d1d2d3…d7d8)=d4d7。
 移位法是将分割后的每部分低位对齐相加
 折叠法是从一端向另一端沿分割界来回折叠（奇数段为正序，偶数段为倒序），然后将各段相加。
 例如：key=12360324711202065
-![](img/dataStructure/20200521164854.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521164854.png)
 
 **5.除留求余法**
 哈希表长为 m，
@@ -2782,7 +2782,7 @@ di＝伪随机数序列
 基本思想是将所有哈希地址为 i 的元素构成一个称为同义词链的单链表，并将单链表的头指针存在哈希表的第 i 个单元中，因而查找、插入和删除主要在同义词链中进行。链地址法适用于经常进行插入和删除的情况。
 例：
 已知一组关键字（32，40，36，53，16，46，71，27，42，24，49，64），哈希表长度为13，哈希函数为：H（key）= key %13，给出用链地址法处理冲突的结果，计算平均查找长度。如下图所示：
-![](img/dataStructure/20200521170905.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521170905.png)
 
 平均查找长度`ASL=(1*7+2*4+3*1)/12=1.5`
 
@@ -2837,7 +2837,7 @@ int HashSearch( HashTable ht, KeyType K){
 α可描述哈希表的装满程度。显然，α越小，发生冲突的可能性越小。
 
 以下按处理冲突的不同方法，分别列出相应的平均查找长度的近似公式：
-![](img/dataStructure/20200521180455.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521180455.png)
 
 手工计算等概率情况下**查找成功**的平均查找长度公式：
 `ASLsucc=(比较次数)/表中元素个数`
@@ -2846,7 +2846,7 @@ int HashSearch( HashTable ht, KeyType K){
 `ASLunsucc=(比较次数)/哈希函数取值个数`
 
 例子：
-![](img/dataStructure/20200521180948.png)
+![](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/20200521180948.png)
 
 `ASLsucc=1/12(1*7+2*4+3*1)=1.5`
 `ASLunsucc=1/13(1*6+2*3+3*3+4)=1.9`
@@ -2926,7 +2926,7 @@ void BinSort (RecordType r[], int length){
 **基本思想**
 先将待排序记录序列分割成若干序列，分别进行直接插入排序；待整个序列中的记录基本有序后，再全体进行一次直接插入排序。
 
-![image-20200528222245716](img/dataStructure/image-20200528222245716.png)
+![image-20200528222245716](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20200528222245716.png)
 
 ```c
 /*对记录数组 r 做一趟希尔插入排序，length 为数组的长度,delta 为增量*/
@@ -3073,7 +3073,7 @@ void SelectSort(SqList &L){
 
 树型选择排序也称作锦标赛排序。基本思想是先把待排序的 n 个记录的关键字两两进行比较，取出较小者，然后再在 n /2个较小者中，采用同样的方法进行比较选出每两个中的较小者，如此反复，直至选出最小关键字记录为止。
 
-![image-20200601164451044](img/dataStructure/image-20200601164451044.png)
+![image-20200601164451044](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20200601164451044.png)
 
 **性能分析**：
 时间复杂度O(nlog2n)
@@ -3082,7 +3082,7 @@ void SelectSort(SqList &L){
 
 大根堆：这棵完全二叉树中任意结点的关键字**大于**或者等于其左孩子和右孩子的关键字
 小根堆：这棵完全二叉树中任意结点的关键字**小于**或者等于其左孩子和右孩子的关键字
-![image-20200601171816364](img/dataStructure/image-20200601171816364.png)
+![image-20200601171816364](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20200601171816364.png)
 **基本思想**
 将序列构造成一棵完全二叉树
 把这棵普通的完全二叉树改造成堆，便可获取最小值（最大值）

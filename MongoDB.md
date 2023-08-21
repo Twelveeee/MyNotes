@@ -22,7 +22,7 @@ SQL和MongoDB概念区别
 | table joins |             | 表连接，mongodb不支持         |
 | primary key | primary key | 主键，mongodb自动设置ID为主键 |
 
-![image-20210106225600798](img/MongoDB/image-20210106225600798.png)
+![image-20210106225600798](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210106225600798.png)
 
 ## 数据类型
 
@@ -303,7 +303,7 @@ db.products.find({ "item": "Banana"}).explain();
 
 ## 安全简介
 
-![image-20210109161748611](img/MongoDB/image-20210109161748611.png)
+![image-20210109161748611](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109161748611.png)
 
 **基本概念**
 **资源**：一个资源可以是一个数据库、集合、或者一个集群
@@ -315,7 +315,7 @@ db.products.find({ "item": "Banana"}).explain();
 
 ## 用户认证
 
-![image-20210109161931650](img/MongoDB/image-20210109161931650.png)
+![image-20210109161931650](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109161931650.png)
 
 **认证方法**：
 ``db.auth(“username”，“pwd”);`
@@ -327,7 +327,7 @@ x.509
 
 ## 用户和角色管理
 
-![image-20210109162038416](img/MongoDB/image-20210109162038416.png)
+![image-20210109162038416](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109162038416.png)
 
 一个用户想要访问数据库，需要赋予相关的Role,角色就是对一些特定资源可以操作的命令集合。
 
@@ -396,7 +396,7 @@ db.createRole(
 
 MongoDB副本集采用一主多备模式
 
-![image-20210109163710996](img/MongoDB/image-20210109163710996.png)
+![image-20210109163710996](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109163710996.png)
 
 **主节点Primary**：提供读写能力
 **备节点Secondary**：数据副本，可以选举为Primary，提高可用性
@@ -419,7 +419,7 @@ rs.status() //查看副本集信息
 ### MongoDB集群架构说明
 
 MongoDB集群包含MongoS、Config、Shard节点
-![image-20210109165005053](img/MongoDB/image-20210109165005053.png)
+![image-20210109165005053](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109165005053.png)
 
 **mongos**：查询路由
 **config**：集群元数据（副本集构成）
@@ -450,7 +450,7 @@ MongoDB中有一种特殊类型的集合，值得特别留意，那就是固定�
 
 Oplog的定位和作用：Oplog就是一张Capped表，位于local库下。记录了用户的操作，用于主备间的同步。
 
-![image-20210109172615078](img/MongoDB/image-20210109172615078.png)
+![image-20210109172615078](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109172615078.png)
 
 ## Oplog的使用
 
@@ -499,7 +499,7 @@ cs.next()
 
 华为云DDS 经典副本集架构采用PSA（Primary+Secondary+Arbiter）经典架构，支持数据冗余和读写分离的特性。
 
-![image-20210109175031281](img/MongoDB/image-20210109175031281.png)
+![image-20210109175031281](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109175031281.png)
 
 **主节点（Primary）**
 •接收所有的写请求，然后把修改同步到所有Secondary。
@@ -516,7 +516,7 @@ cs.next()
 
 华为云DDS 经典集架构采用MongoS+ConfigServer+Shard部署方式。
 
-![image-20210109175242639](img/MongoDB/image-20210109175242639.png)
+![image-20210109175242639](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109175242639.png)
 
 **MongoS节点**
 •用户访问的路由节点，用户应用直接访问此节点，此节点不做存储，只做指令路由。
@@ -541,7 +541,7 @@ cs.next()
 
 通过三种角色的关系转换，解决选举角色的问题，如下：
 
-![image-20210109175425923](img/MongoDB/image-20210109175425923.png)
+![image-20210109175425923](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109175425923.png)
 
 ## Oplog / ChangeStream容灾备份能力演进
 
@@ -619,7 +619,7 @@ RetryableWrite
 	•写操作失败后可重试，由服务端判断是否已经执行成功
 	•Exactly Once Delivery
 
-![image-20210109181716411](img/MongoDB/image-20210109181716411.png)
+![image-20210109181716411](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109181716411.png)
 
 每个retryableWrite的txnNumber递增
 数据库记录上一次执行成功的<lsid, txnNumber>
@@ -685,7 +685,7 @@ OplogChain
 一条Oplog放不下整个事务的操作
 通过prevOpTime字段将事务完整的Oplog串起来
 
-![image-20210109182912152](img/MongoDB/image-20210109182912152.png)
+![image-20210109182912152](https://twelveeee-note.oss-cn-beijing.aliyuncs.com/Image/image-20210109182912152.png)
 
 ## MongoDB 2PC事务协议
 
