@@ -728,3 +728,695 @@ func main() {
 }
 ```
 
+## 语句
+
+语句（statement）执行一到多个动作，表达式（expression）计算并返回结果。 表达式属于语句，而语句未见得是表达式。
+
+**关键字**
+仅 25 个 保留关键字（keywords），体现语法规则的简洁性。 保留关键字不能用作常量、变量、函数名以及结构字段等标识符。
+
+```go
+break        default       func        interface   select
+case         defer         go          map         struct
+chan         else          goto        package     switch
+const        fallthrough   if          range       type
+continue     for           import      return      var
+```
+
+
+
+**符号**
+符号列表。其中，自增（`++`）、自减（`--`）是语句，且没有三元运算符（`?:`）。`^` 即是一元 NOT，也是二元 XOR。而 `~` 为泛型新增。
+
+```go
++      &       +=      &=       &&      ==      !=      (      )
+-      |       -=      |=       ||      <       <=      [      ]
+*      ^       *=      ^=       <-      >       >=      {      }
+/      <<      /=      <<=      ++      =       :=      ,      ;
+%      >>      %=      >>=      --      !       ...     .      :
+       &^              &^=              ~
+```
+
+
+
+**二元**
+一元优先级最高，二元分五个级别。相同优先级的二元运算符，从左往右依次计算。
+
+```go
+highest 	 *     /     %     <<    >>    &    &^
+ 	         +     -     |     ^ 
+ 	         ==    !=    <     <=    >     >=
+ 	         &&
+lowest	   ||
+```
+
+
+
+除位移外，二元操作数类型必须相同。
+
+```go
+func main() {
+    var a int
+    var b int64
+    // _ = a + b // ~ invalid operation: mismatched types int and int64
+}
+```
+
+
+
+位移右操作数是整数类型，或可转换的无类型常量。
+```go
+func main() {
+	b := 23
+	x := 1 << b  
+	println(x)
+}
+```
+
+
+
+位清除（AND NOT, bit clear）和 异或（XOR）不同。 
+清除将左右操作数对应二进制位都为 1 的重置为 0（类似位图），以达到一次清除多个标记位的目的。
+
+```
+0101 & 0011 = 0001  // AND   与：都为 1
+0101 | 0011 = 0111  // OR    或：至少一个 1
+0101 ^ 0011 = 0110  // XOR   异或：只有一个 1
+      ^0111 = 1000  // NOT   取反 (一元)
+```
+
+```go
+
+func main() {
+	a := 0b01100101
+	b := 0b11010100
+	
+	x := a ^ b   // 10110001
+	c := a &^ b  // 00100001
+    
+	fmt.Printf("%08b\n", x)
+	fmt.Printf("%08b\n", c)
+}
+```
+
+```go
+const (
+	read    byte = 1 << iota
+	write
+	exec
+	freeze
+)
+
+func main() {
+	a := read | write | freeze
+	b := read | exec
+    
+	c := a &^ b 
+    
+	println(c == write | freeze) // true
+	println(c & write == write)  // true
+	println(c & read == read)    // fasle
+}
+```
+
+
+
+**初始化**
+
+对复合类型（数组、切片、字典、结构体）变量初始化时，有一些语法限制。
+
+初始化表达式须含类型标签。（数组、字典元素可省略）
+左大括号不能另起一行。
+多个成员初始值以逗号分隔。
+允许多行，但每行须以逗号或右大括号结束。
+
+
+
+**作用域**
+
+通常意义上的作用域由大括号构成。作用域构成独立空间，内部所定义成员无法被外部访问。 当然，也有更大范围的作用域，如包（package），它有自己的规则。
+
+作用域限定变量可被谁访问，而生命周期表示对象存活时间（可被不同作用域引用），不同混同。
+
+同级作用域相互隔离。
+下层可访问上层作用域成员。
+下层作用域遮蔽上层作用域同名成员。
+
+```go
+func main() {
+	x := 1
+
+	{
+		x := "abc"     // 新变量，遮蔽。
+		y := 2
+		println(x, y)  // abc, 2
+	}
+
+	println(x)         // 1
+	println(y)         // undefined: y
+}
+```
+
+### 选择语句
+
+两种分支选择控制语句。
+
+if：适合逻辑控制，分支数量不宜过多。
+switch：适合数据匹配，分支内容不宜过长。
+
+#### If
+
+条件表达式值必须是布尔类型，可省略括号，且左大括号不能另起一行。
+
+善用初始化语句，组合调用和返回值处理。
+如定义局部变量，其作用域覆盖所有分支。
+减少嵌套和分支，让正常逻辑处于相同层次。
+如条件表达式过于冗长，可将其重构为函数。
+
+```go
+func do(x int) error {
+	if x <= 0 {
+		return errors.New("x <= 0")
+	}
+	return nil
+}
+
+func main() {
+	x := 10
+    
+  // 局部变量 err 作用域覆盖所有分支。
+	if err := do(x); err == nil {
+    // 正常逻辑。
+		x++
+		println(x)
+  } else {
+    // 错误处理。
+		log.Fatalln(err)
+	}
+}
+```
+
+```go
+func main() {
+	x := 10
+	err := do(x)
+
+    // 错误处理是对正常逻辑的补充。
+    // 是阅读时可被 “忽略” 的片段。
+	if err != nil {
+		log.Fatalln(err)
+	}
+	
+	x++
+	println(x)
+}
+```
+
+
+
+#### Switch
+
+利用 switch 语句进行多路匹配。
+
+支持初始化语句。
+从上到下、从左到右顺序匹配。
+全部匹配失败，执行 default。
+隐式 break中断。
+相邻空 case 不构成多条件匹配。
+匹配条件中，不能有重复常量值，变量则按次序匹配。
+
+```go
+func main() {
+	a, b, c := 1, 2, 3
+    
+	switch x := 5; x {
+	case a, b:              // OR
+		println("a | b")
+	case c:
+		println("c")
+	case 4:
+		println("d")
+	default:
+		println(x)
+	}
+}
+```
+
+```go
+func main() {
+	switch x := 1; x {
+	case 0:              // 隐式 break 中断。
+	case 1:
+	case 2:
+		println("b")
+	}
+}
+```
+
+```go
+func main() {
+	switch x := 1; x {
+	case 1:
+	case 1, 2:  // duplicate case 1 (constant of type int)
+	}
+}
+```
+
+```go
+func main() {
+	a, b := 1, 2
+	x := a
+
+	switch x {
+	case b, a: println("b, a")
+	case a   : println("a")
+	}
+}
+
+// b, a
+```
+
+
+
+**执行 fallthrough** 
+
+按源码顺序。
+不检查后续条件。
+必须是当前块（case）结尾，且后面有其他块。
+某些时候，省略条件变量以替换分支过多的 if 语句。
+
+```go
+func main() {
+	switch x := 5; x {
+	case 5:
+		println("5")
+		fallthrough    // 不判断 case 6 匹配条件，直接执行下一个case块
+	case 6:
+		println("6")
+	case 7:
+		println("7")
+  default:
+    println("default")
+	}
+}
+
+// 5
+// 6
+```
+
+```go
+func main() {
+	switch x := 5; x {
+	default:
+		println("0")
+	case 5:
+		println("5")
+
+		// 按源码顺序，所以上面的 default 不执行。
+		// 除非将 default 挪到下面。
+
+		// fallthrough
+		// ~~~~~~~~~~~ cannot fallthrough final case in switch
+	}
+}
+```
+
+```go
+func main() {
+	switch x := 5; x {
+	case 5:
+		x += 10
+
+		// if x >= 15 {
+		// 	fallthrough   // fallthrough statement out of place
+		// }
+
+		if x < 15 { break }
+		fallthrough
+	case 6:
+	}
+}
+```
+
+```go
+func main() {
+	switch x := 1; {        // switch x := 5; true { ... }
+	case x == -1, x == 1:   // OR, ||
+		println("a")
+	case x > 1 && x <= 10:
+		println("a")
+	case x > 10:
+		println("b")
+	default:
+		println("z")
+	}
+}
+```
+
+### 循环语句
+
+仅 for 一种循环语句，常用方式都能支持。
+
+```go
+func main() {
+	
+	for i := 0; i < 3; i++ {
+	}
+
+  x := 0
+	for x < 10 {
+		x++
+	}
+
+	for {
+		break
+	}
+
+}
+```
+
+
+
+初始化语句仅执行一次。
+条件表达式中的函数被多次调用，或被内联优化。
+所定义变量，在整个循环周期内重复使用。
+
+```go
+func count() int {
+	print("count.")
+	return 3
+}
+
+func main() {
+
+	// 初始化语句仅执行一次。
+	for i, c := 0, count(); i < c; i++ {
+		println("a", i)
+	}
+    
+	c := 0
+
+	// 条件表达式，多次调用。
+	for c < count() {
+		println("b", c)
+		c++
+	}
+}
+```
+
+#### Range
+
+用 `for...range` 迭代数组、切片、字典等。
+
+```
+
+  type              1st value      2nd value
+-----------------+--------------+--------------+-----------------
+  string            index          s[index]       unicode, rune
+  array, slice      index          v[index]
+  map               key            value
+  channel           element
+```
+
+
+
+
+
+```go
+func main() {
+	data := []int{10, 11, 12}
+
+	for i, s := range data {
+		println(i, s)
+	}
+}
+
+/*
+0 10
+1 11
+2 12
+*/
+
+// 允许返回单值，或用 _ 忽略。
+func main() {
+	data := []int{10, 11, 12}
+
+	for i := range data {
+		println(i)
+	}
+
+	for _, v := range data {
+		println(v)
+	}
+
+	for range data {
+		println("a")
+	}
+}
+```
+
+
+
+定义的局部变量会重复使用。
+
+```go
+func main() {
+	data := []int{ 1, 2, 3 }
+    
+	for i, s := range data {
+		println(&i, &s)
+	}
+}
+
+/*
+
+0xc000032748 0xc000032740
+0xc000032748 0xc000032740
+0xc000032748 0xc000032740
+
+*/
+```
+
+
+
+`range` 会复制目标数据。受直接影响的是数组，改用切片或指针。
+
+```go
+func main() {
+	data := [...]int{1, 2, 3}
+
+	for i, x := range data {
+		if i == 0 {
+			data[0] += 100
+			data[1] += 200
+			data[2] += 300
+		}
+
+		println(x, data[i])
+	}
+}
+
+/*
+
+1 101
+2 202
+3 303
+
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+
+	data := [...]int{1, 2, 3}
+
+	MOVQ $0x1, 0x20(SP)	
+	MOVQ $0x2, 0x28(SP)	
+	MOVQ $0x3, 0x30(SP)	
+
+	for i, x := range data {
+		
+	MOVQ $0x1, 0x38(SP)	
+	MOVQ $0x2, 0x40(SP)	
+	MOVQ $0x3, 0x48(SP)	
+
+*/
+```
+
+
+
+如目标表达式是函数调用，仅执行一次。
+
+```go
+//go:noinline
+func data() []int {
+	println("data")
+	return []int{10, 20, 30}
+}
+
+func main() {
+	for _, x := range data() {
+		println(x)
+	}
+}
+
+/*
+
+data
+10
+20
+30
+
+*/
+```
+
+
+
+### 跳转
+
+#### Goto
+
+讨伐已久的 `goto`，在运行时源码中不算稀客。
+
+虽然某些设计模式可用来消除 goto 语句，但在性能优先的场合，它能发挥积极作用。
+
+
+
+使用前，先定义标签。
+
+标签区分大小写。
+未使用的标签会引发编译错误。
+不能跳转到其他函数，或内层代码块。
+不能导致变量定义跳跃。
+
+```go
+func main() {
+
+// start:
+// label start defined and not used
+
+	for i := 0; i < 3; i++ {
+		if i > 1 {
+			goto exit
+		}
+		println(i)
+	}
+exit:
+	println("exit.")
+}
+```
+
+```go
+func test() {
+	goto test
+test:
+}
+
+func main() {
+	for{
+	loop:
+	}
+
+	goto test   // label test not defined
+	goto loop   // goto loop jumps into block
+}
+```
+
+```go
+func main() {
+	// goto done
+	// ~~~~~~~~~ goto done jumps over declaration of v
+
+	v := 0
+done:
+	println(v)
+}
+```
+
+#### **中断**
+
+与定点跳转不同，中断结束当前或指定语句块。
+
+`break`：终止 switch/for/select 语句块。
+`continue`：仅用于 for，进入下轮循环。
+
+```go
+func main() {
+	for i := 0; i < 10; i++ {
+        
+		if i % 2 == 0 {
+            continue     // 立即进入下轮循环。(goto next)
+		}
+
+		if i > 5 {
+			break        // 立即终止整个循环。
+		}
+        
+		println(i)
+	}
+}
+
+/*
+1
+3
+5
+*/
+```
+
+
+
+配合标签，在多层嵌套中指定目标。
+
+```go
+func main() {
+    
+outer:
+	for x := 0; x < 10; x++ {
+        
+inner:		
+		for y := 0; y < 10; y++ {
+			if x % 2 == 0 {
+				continue outer
+			}
+
+			if y > 3 {
+				println()
+				break inner
+			}
+            
+			print(x, ":", y, " ")
+		}
+	}
+}
+
+/*
+
+1:0 1:1 1:2 1:3 
+3:0 3:1 3:2 3:3 
+5:0 5:1 5:2 5:3 
+7:0 7:1 7:2 7:3 
+9:0 9:1 9:2 9:3
+
+*/
+```
+
+```go
+func main() {
+    
+start:
+	switch 1 {
+	case 1:
+		println(1)
+        
+		for {
+			break start
+		}
+
+		println(2)
+	}
+
+	println(3)
+}
+
+// 1
+// 3
+```
+
