@@ -1420,3 +1420,1363 @@ start:
 // 3
 ```
 
+## 函数
+
+### 基本概念
+
+函数（function）是结构化编程的最小模块单元。
+
+将复杂算法过程分解成若干较小任务，隐藏细节，使得程序结构更加清晰，易于维护。函数被设计成相对独立，通过接收输入参数完成一段算法指令，输出或存储相关结果。因此，函数还是代码复用和测试的基本单元。
+
+关键字 func 用于定义函数。有些不方便的限制，但也借鉴了动态语言的优点。
+
+无需前置声明。
+支持不定长变参。
+支持多返回值。
+支持命名返回值。
+支持匿名函数和闭包。
+
+不支持命名嵌套定义（nested）。
+不支持同名函数重载（overload）。
+不支持默认参数。
+
+函数是第一类对象。
+只能判断是否为 nil，不支持比较操作。
+
+```go
+func main() {
+    // 不支持命名函数嵌套，得改用匿名。
+    func add(x, y int) int {  // syntax error: unexpected add
+        return x + y
+    }
+}
+```
+
+```go
+func a() {}
+func b() {}
+
+func main() {
+	println(a == nil)
+	// println(a == b) // ~ invalid: func can only be compared to nil
+}
+```
+
+
+
+具备相同签名（参数及返回值列表，不包括参数名）的视作同一类型。
+
+```go
+func exec(f func()) {
+	f()
+}
+
+func main() {
+	var f func() = func() { println("hello, world!" )}
+	exec(f)
+}
+```
+
+
+
+基于阅读和维护角度，使用命名类型更简洁。
+
+```go
+type FormatFunc func(string, ...any) string
+
+// 如不使用命名类型，这个参数签名会长到没法看。
+func toStringV2(f FormatFunc, s string, a ...any) string {
+    return f(s, a...)
+}
+
+func toStringV1(f func(string, ...any) string, s string, a ...any) string {
+    return f(s, a...)
+}
+
+func main() {
+	println(toStringV2(fmt.Sprintf, "%d", 100))
+}
+```
+
+
+
+安全返回局部变量指针。
+
+编译器通过逃逸分析（escape analysis）来决定，是否在堆上分配内存。
+但优化后（内联），最终生成的代码未必如此。总之，为了减少垃圾回收压力，编译器竭尽全力在栈分配内存。
+
+```go
+func test() *int {
+	a := 0x100
+	return &a
+}
+
+func main() {
+	var a *int = test()
+	println(a, *a)
+}
+
+/*
+$ go build -gcflags "-m"
+  moved to heap: a
+*/
+```
+
+
+
+不支持尾递归优化。
+
+>**尾递归：**若函数在尾位置调用自身（或是一个尾调用本身的其他函数等等），则称这种情况为**尾递归**。
+
+```go
+func factaux (n, ret int) int {
+    if n < 2 { return ret }
+    return factaux(n - 1, ret * n);
+}
+
+func main() {
+    println(factaux(3, 1))
+}
+
+/*
+
+$ go build
+$ go tool objdump -s "main\.factaux" ./test
+
+TEXT main.factaux(SB)
+     CALL main.factaux(SB)			
+  
+*/
+```
+
+
+
+
+
+#### **函数命名规则**
+
+在避免冲突的前提下，函数命名本着 精简短小、望文知意 的原则。
+
+●避免只能通过大小写区分的同名函数。
+●避免与内置函数同名，这会导致误用。
+●避免使用数字，除非特定专有名词。
+
+函数和方法的命名规则稍有不同。 方法通过选择符调用，且具备状态上下文，可使用更简短的动词命名。
+
+
+
+#### **函数参数**
+
+对参数的处理偏向保守。
+
+●按签名顺序传递相同数量和类型的实参。
+●不支持有默认值的可选参数。
+●不支持命名实参。
+●不能忽略 _ 命名的参数。
+
+●参数列表中，相邻同类型参数声明可合并。
+●参数可视作函数局部变量。
+
+形参（parameter）是函数定义中的参数，实参（argument）则是函数调用时所传递参数。 形参同函数局部变量，而实参是函数外部对象。
+
+```go
+func test(x, y int, s string, _ bool) *int {
+	// var x string // ~  x redeclared in this block
+	return nil
+}
+
+func main() {
+	// test(1, 2, "abc")
+	//      ~~~~~~~~~~~ not enough arguments in call to test
+	//                      have (number, number, string) 
+	//                      want (int, int, string, bool)
+}
+```
+
+
+
+不管是指针、引用类型，还是其他类型，参数总是 **值拷贝传递（pass by value）**。区别无非是复制完整目标对象，还是仅复制头部或指针而已。
+
+```go
+//go:noline
+func test(x *int, s []int) {
+	println(*x, len(s))
+}
+
+func main() {
+	x := 100
+	s := []int{1, 2, 3}
+	test(&x, s)
+}
+
+/*
+
+$ go build
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+
+	x := 100
+  0x462c94		MOVQ $0x64, 0x20(SP)
+  
+	s := []int{1, 2, 3}
+  0x462ca9		MOVQ $0x1, 0x28(SP)	
+  0x462cb2		MOVQ $0x2, 0x30(SP)	
+  0x462cbb		MOVQ $0x3, 0x38(SP)	
+  
+	test(&x, s)
+  0x462cc4		LEAQ 0x20(SP), AX	; &x
+  0x462cc9		LEAQ 0x28(SP), BX	; s.ptr
+  0x462cce		MOVL $0x3, CX		; s.len
+  0x462cd3		MOVQ CX, DI		
+  0x462cd6		CALL main.test(SB)	
+}
+
+*/
+```
+
+
+
+**何时用指针类型参数：**
+
+●实参对象复制成本过高。
+●需要修改目标对象。
+●用二级指针实现传出（out）参数。
+
+```go
+//go:noinline
+func test(p **int) {
+	x := 100
+	*p = &x
+}
+
+func main() {
+	var p *int
+	test(&p)
+
+	println(*p)
+}
+```
+
+
+
+参数命名为 _，表示忽略。
+ 比如，实现特定类型函数，忽略掉无用参数，以避免内部污染。
+
+```go
+func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+    ...
+}
+```
+
+
+
+出现如下情形，建议以复合结构代替多个形参。
+
+●参数过多，不便阅读。
+●有默认值的可选参数。
+●后续调整，新增或重新排列。
+
+```go
+type Option struct {
+	addr    string
+	port    int
+	path    string
+	timeout time.Duration
+	log     *log.Logger
+}
+
+// 创建默认参数。
+func newOption() *Option {
+	return &Option{
+		addr:    "0.0.0.0",
+		port:    8080,
+		path:    "/var/test",
+		timeout: time.Second * 5,
+		log:     nil,
+	}
+}
+
+func server(option *Option) {
+	fmt.Println(option)
+}
+
+func main() {
+	opt := newOption()
+	opt.port = 8085     // 修改默认设置。
+	server(opt)
+}
+```
+
+
+
+#### **函数变参**
+
+变参本质上就是切片。只能接收一到多个同类型参数，且必须放在列表尾部。
+
+```go
+func test(s string, a ...int) {
+	fmt.Printf("%T, %v\n", a, a)
+}
+
+func main() {
+	test("abc", 1, 2, 3, 4)
+}
+
+// []int, [1 2 3 4]
+```
+
+
+
+切片作为变参时，须进行展开操作。
+
+```go
+func test(a ...int) {
+	fmt.Println(a)
+}
+
+func main() {
+	a := [3]int{10, 20, 30}
+    
+    // 转换为切片后展开。
+	test(a[:]...) 
+}
+```
+
+
+
+既然变参是切片，那么参数复制的仅是切片自身。正因如此，就有机会修改实参。
+
+```go
+//go:noinline
+func test(a ...int) {
+	for i := range a {
+		a[i] += 100
+	}
+}
+
+func main() {
+	a := []int{1, 2, 3}
+	test(a...)
+	
+	println(a[1])
+}
+
+/*
+
+$ go build
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+
+	a := []int{1, 2, 3}
+  0x462c20		MOVQ $0x1, 0x20(SP)	
+  0x462c29		MOVQ $0x2, 0x28(SP)	
+  0x462c32		MOVQ $0x3, 0x30(SP)	
+  
+	test(a...)
+  0x462c3b		LEAQ 0x20(SP), AX	; a.ptr
+  0x462c40		MOVL $0x3, BX		; a.len
+  0x462c45		MOVQ BX, CX		
+  0x462c48		CALL main.test(SB)
+
+*/
+```
+
+
+
+#### 参数生命周期
+
+参数和其他局部变量的生命周期，未必能坚持到函数调用结束。 垃圾回收非常积极，对后续不再使用的对象，可能会提前清理。
+
+```go
+//go:noinline
+func test(x []byte) {
+	println(len(x))
+
+    // 模拟垃圾回收触发。
+	runtime.SetFinalizer(&x, func(*[]byte){ println("drop!") })
+	runtime.GC()
+
+	println("exit.")
+    
+    // 确保目标活着。
+	// runtime.KeepAlive(&x)
+}
+
+func main() {
+	test(make([]byte, 10<<20))
+}
+
+// 10485760
+// drop!
+// exit.
+```
+
+
+
+#### **函数返回值**
+
+借鉴动态语言的多返回值模式，让函数得以返回更多状态。
+
+```go
+func div(x, y int) (int, error) {
+	if y == 0 {
+		return 0, errors.New("division by zero")
+	}
+    
+	return x / y, nil
+}
+
+func main() {
+	z, err := div(6, 2)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	println(z)
+}
+```
+
+
+
+●用 _ 忽略不想要的返回值。
+●多返回值可用作调用实参，或当结果直接返回。
+
+```go
+func log(x int, err error) {
+	fmt.Println(x, err)
+}
+
+func test() (int, error) {
+	return div(5, 0)        // 直接返回。
+}
+
+func main() {
+	log(test())             // 直接当作多个实参。
+}
+```
+
+
+
+●有返回值的函数，所有逻辑分支必须有明确 return 语句。
+●除非 panic，或无 break 的死循环。
+
+```go
+func test(x int) int {
+	if x > 0 {
+		return 1
+	} else if x < 0 {
+		return -1
+	}
+
+	// missing return
+} 
+```
+
+```go
+func test(x int) int {
+	for {
+		break
+	}
+
+	// missing return
+}
+```
+
+
+
+#### **返回值命名**
+
+对返回值命名，使其像参数一样当作局部变量使用。
+
+●函数声明更加清晰、可读。
+●更好的代码编辑器提示。
+
+```go
+func paging(sql string, index int) (count int, pages int, err error) {
+}
+```
+
+
+
+●可由 return 隐式返回。
+●如被同名遮蔽，须显式返回。
+
+```go
+func add(x, y int) (z int) {
+	z = x + y
+	return
+}
+```
+
+```go
+func add(x, y int) (z int) {
+	// 作为 “局部变量”，不能同级重复定义。
+	{
+		z := x + y
+		// return // ~ result parameter z not in scope at return
+		return z
+	}
+}
+```
+
+
+
+要么不命名，要么全部命名，否则编译器会搞不清状况。
+
+```go
+func test() (int, s string, e error) {
+	// return 0, "", nil // ~ cannot use 0 as string value in return statement
+	
+}
+```
+
+
+
+如返回值类型能明确表明含义，就尽量不要对其命名。
+
+```go
+func NewUser() (*User, error)
+```
+
+
+
+### 匿名函数
+
+匿名函数是指没有名字符号的函数。除此之外，和普通函数类似。
+
+●可在函数内定义匿名函数，形成嵌套。
+●可随定义直接传参调用，并返回结果。
+●可保存到变量、结构字段，或作为参数、返回值传递。
+
+●匿名函数可引用环境变量，形成闭包。
+●不曾使用的匿名函数被当作错误。
+●不能使用编译指令。（//go:noinline）
+
+```go
+func main() {
+    // 定义时调用。
+	_ = func(s string) string {
+		return "[" + s + "]"
+	}("abc")
+
+	// --------------
+    
+    // 变量。
+	add := func(x, y int) int {
+		return x + y
+	}
+
+	_ = add(1, 2)
+}
+```
+
+```go
+func wrap(f func(string)string) func() {
+	return func() {
+		println(f("abc"))
+	}
+}
+
+func main() {
+	wrap(func(s string) string {
+		return "[" + s + "]"
+	})()
+}
+```
+
+```go
+func main() {
+	// func(s string) { println(s) }
+	// ~~~~ func is not used
+}
+```
+
+
+
+编译器为匿名函数自动生成名字。
+
+```go
+func main() {
+	func() {
+		println("abc")
+	}()
+}
+
+/*
+$ go build -gcflags "-l"
+$ go tool objdump -S -s "main\.main" ./test
+
+	CALL main.main.func1(SB)
+*/
+```
+
+
+
+普通函数和匿名函数都可作为结构体字段，或经通道传递。
+
+```go
+func main() {
+	calc := struct {
+		add func(int, int) int
+		mul func(int, int) int
+	}{
+		add: func(x, y int) int { return x + y },
+		mul: func(x, y int) int { return x * y },
+	}
+
+	_ = calc.add(1, 2)
+}
+```
+
+```go
+func main() {
+	fn := make(chan func())
+
+	go func() {
+		defer close(fn)
+
+		f := <- fn
+		f()
+	}()
+
+	fn <- func(){ println("hi!") }
+	<- fn
+}
+```
+
+匿名函数是常见的重构手段：将大段代码分解成多个相对独立的逻辑单元。
+
+●不提升代码作用域的前提下，分离流程和细节。
+●依赖函数接口而非具体代码，逻辑层次更清晰。
+●无状态逻辑与有状态变量分离，更利于测试。
+●作用域隔离，修改代码时不会引发外部污染。
+
+
+
+#### **闭包**
+
+闭包（closure）是匿名函数和其引用的外部环境变量组合体。
+
+```go
+//go:noinline
+func test() func() {
+	x := 100
+	println(&x, x)
+
+	return func() {      // 返回闭包，而非函数。
+		x++
+		println(&x, x)   // 引用环境变量 x 。
+	}
+}
+
+func main() {
+	test()()
+}
+
+/*
+0xc000018060 100
+0xc000018060 101
+*/
+```
+
+
+
+从上例输出结果看，闭包会延长环境变量生命周期。 所谓闭包，实质上是由匿名函数和（一到多个）环境变量指针构成的结构体。
+
+编译器优化可能改变闭包返回和执行方式，以实际输出为准。
+
+```go
+/*
+
+$ go build -gcflags "-m -S"
+
+    moved to heap: x
+
+
+---- func test ---------------------
+
+    TEXT    "".test(SB), ABIInternal
+
+x := 100
+
+    LEAQ    type.int(SB), AX
+    CALL    runtime.newobject(SB)
+    MOVQ    AX, "".&x+16(SP)
+    MOVQ    $100, (AX)
+
+return func(){...}
+
+    LEAQ    type.noalg.struct { F uintptr; "".x *int }(SB), AX
+    CALL    runtime.newobject(SB)
+
+    LEAQ    "".test.func1(SB), CX  ; 匿名函数。
+    MOVQ    CX, (AX)
+
+    MOVQ    "".&x+16(SP), CX       ; 环境变量 x 地址。
+    MOVQ    CX, 8(AX)
+    
+    RET
+
+*/
+```
+
+
+
+接收到的闭包，经专用寄存器（DX），将环境变量地址传递给匿名函数。
+
+```go
+/*
+
+--- func main ----------------------
+
+    TEXT    "".main(SB), ABIInternal
+
+    CALL    "".test(SB)   ; 返回闭包。
+    MOVQ    (AX), CX      ; 匿名函数。
+    MOVQ    AX, DX        ; 传递给匿名函数。
+    CALL    CX            ; 调用匿名函数。
+
+--- func test.func1 ----------------------
+
+    TEXT    "".test.func1(SB), NEEDCTXT|ABIInternal
+
+    MOVQ    8(DX), AX         ; 从闭包中获取环境变量。
+    MOVQ    AX, "".&x+8(SP)
+
+    CALL    runtime.printlock(SB)
+    MOVQ    "".&x+8(SP), AX
+    CALL    runtime.printpointer(SB)
+    CALL    runtime.printnl(SB)
+    CALL    runtime.printunlock(SB)
+
+    RET
+
+*/
+```
+
+
+
+从实现机制看，拿到手的闭包除非执行，否则只是存有两个指针的结构体。 这会导致 “延迟求值”，一个初学者时常出错的问题。
+
+```go
+func test() (s []func()) {
+	for i := 0; i < 2; i++ {
+        // 循环使用的 i 始终是同一变量。
+        // 闭包（存储 i 指针）被添加到切片内。
+		s = append(s, func() {
+			println(&i, i)
+		})
+	}
+    
+	return
+}
+
+func main() {
+	for _, f := range test() {
+        // 执行闭包中的匿名函数。
+        // 它以指针读取环境变量 i 的值。
+        // 自然是最后一次循环时 i = 2。
+		f()
+	}
+}
+
+// 0xc000018060 2
+// 0xc000018060 2
+```
+
+```go
+
+func test() (s []func()) {
+	for i := 0; i < 2; i++ {
+		// 用不同的环境变量。
+		x := i
+		s = append(s, func() {
+			println(&x, x)
+		})
+	}
+	return
+}
+
+func main() {
+	for _, f := range test() {
+		f()
+	}
+}
+
+// 0xc000082000 0
+// 0xc000082008 1
+```
+
+
+
+**闭包的应用**
+
+
+
+静态局部变量。
+
+```go
+func test() func() {
+	n := 0
+
+	return func() {
+		n++
+		println("call:", n)
+	}
+}
+
+func main() {
+	f := test()
+	f()
+	f()
+	f()
+}
+
+/*
+
+call: 1
+call: 2
+call: 3
+
+*/
+```
+
+
+
+模拟方法，绑定状态。
+
+```go
+func handle(db Database) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		url := db.Get()
+		io.WriteString(w, url)
+	}
+}
+
+func main() {
+	db := NewDatabase("localhost:5432")
+    
+	http.HandleFunc("/url", handle(db))
+	http.ListenAndServe(":3000", nil)
+}
+```
+
+
+
+包装函数，改变其签名或增加额外功能。
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+// 修改签名。
+func partial(f func(int), x int) func() {
+	return func() {
+		f(x)
+	}
+}
+
+// 增加功能。
+func proxy(f func()) func() {
+	return func() {
+		n := time.Now()
+		defer func() {
+			fmt.Println(time.Now().Sub(n))
+		}()
+		f()
+	}
+}
+
+func main() {
+	test := func(x int) {
+		println(x)
+	}
+	var f func() = partial(test, 100)
+	f()
+	proxy(f)()
+}
+
+// 100
+// 100
+// 16.1µs
+```
+
+
+
+### 延迟调用
+
+语句 defer 注册 稍后执行的函数调用。这些调用被称作 延迟调用，因为它们直到当前函数结束前（RET）才被执行。常用于资源释放、锁定解除，以及错误处理等操作。
+
+●注册非 nil 函数，复制执行所需参数。
+●多个延迟调用按 FILO 次序执行。
+●运行时确保延迟调用总被执行。（`os.Exit` 除外）
+
+```go
+func main() {
+	f, err := os.Open("./main.go")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer f.Close()
+	
+	b, err := io.ReadAll(f)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	println(string(b))
+}
+```
+
+```go
+func main() {
+	defer println(1)   // 此处是注册，而非执行。
+	defer println(2)   // 注册需提供执行所需参数。
+	defer println(3)   // 按 FILO 次序执行。
+
+	println("main")    
+}                      // 退出前执行 defer。
+
+/*
+main
+3
+2
+1
+*/
+```
+
+```go
+	var f func()
+
+	// defer f() // ~ panic: invalid memory address or nil pointer dereference
+}
+```
+
+
+
+正常退出，或以 panic 中断，运行时都会确保延迟函数被执行。
+
+```go
+func main() {
+	defer println("defer!")
+	panic("panic!")          // 换成 os.Exit，会立即终止进程，
+}                            // 肯定不执行延迟调用。
+
+/*
+defer!
+panic: panic!
+*/
+```
+
+
+
+注意参数复制行为，必要时以指针或引用类型代替。
+
+```go
+func main() {
+	x := 100
+	defer println("defer:", x)
+
+	x++
+	println("main:", x)
+}
+
+/*
+ main: 101
+ defer: 100
+*/
+```
+
+
+
+延迟调用以闭包形式修改命名返回值，但须注意执行次序。
+
+```go
+func test() (z int) {
+	defer func() {
+		z += 200
+	}()
+    
+    return 100   // return = (ret_val_z = 100, call defer, ret)
+}
+
+func main() {
+	println(test())  // 300
+}
+```
+
+
+
+如果不是命名返回值，那么结果截然不同。
+
+```go
+func test() int {
+	z := 0
+
+	defer func() {
+		z += 200    // 本地变量，与返回值无关。
+	}()
+    
+    z = 100
+    return z        // return = (ret_val = 100, call defer, ret)
+}
+
+func main() {
+	println(test())  // 100
+}
+```
+
+
+
+### 错误处理
+
+没有结构化异常，以返回值标记错误状态。
+
+```go
+// builtin
+type error interface {
+	Error() string
+}
+
+// io
+func ReadAll(r Reader) ([]byte, error)
+```
+
+
+
+●标志性错误：一种明确状态，比如 `io.EOF`。
+●提示性错误：返回可读信息，提示错误原因。
+
+必须检查所有返回错误，这也导致代码不太美观。
+
+```go
+func main() {
+	file, err := os.Open("./main.go")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println(string(content))
+}
+```
+
+
+
+标志性错误，通常以 全局变量（指针、接口）方式定义。而提示性错误，则直接返回 临时对象。
+
+```go
+// io
+var EOF = errors.New("EOF")
+```
+
+```go
+// src/errors/errors.go
+
+package errors
+
+func New(text string) error {
+    return &errorString{text}   // pointer & interface
+}
+
+type errorString struct {
+    s string
+}
+
+func (e *errorString) Error() string {
+    return e.s
+}
+```
+
+●是否有错：`err != nil`
+●具体错误：`err == ErrVar`
+●错误匹配：`case ErrVal`
+●类型转换：`e, ok := err.(T)`
+
+
+
+自定义承载更多上下文的错误类型。
+
+```go
+type TestError struct {
+	x int
+}
+
+func (e *TestError) Error() string {
+	return fmt.Sprintf("test: %d", e.x)
+}
+
+var ErrZero = &TestError{ 0 }  // 指针! (以便判断是否同一对象)
+
+// -----------------------------
+
+func main() {
+	var e error = ErrZero
+	fmt.Println(e == ErrZero)
+
+	if t, ok := e.(*TestError); ok {
+		fmt.Println(t.x)
+	}
+}
+```
+
+
+
+函数返回时，须注意 error 是否真等于 nil，以免错不成错。
+
+```go
+func test() error {    
+	var err *TestError
+
+	// 结构体指针。
+	println(err == nil)   // true
+    
+	// 接口只有类型和值都为 nil 时才等 于 nil。err 显然有类型信息。正确做法是直接 return nil。
+    
+	// 转型为接口。
+	return err
+}
+
+func main() {
+	err := test()
+	println(err == nil)   // false
+}
+```
+
+
+
+
+标准库：
+
+●`errors.New`: 创建包含文本信息的错误对象。
+●`errors.Join`: 打包一到多个错误对象，构建树状结构。
+●`fmt.Errorf`: 以%w 包装一到多个错误对象。
+
+包装对象：
+
+●`errors.Unwrap`: 返回被包装错误对象（或列表）。
+●`errors.Is`: 递归查找是否有指定错误对象。
+●`errors.As`: 递归查找并获取类型匹配的错误对象。
+
+
+
+创建错误树，返回完整的错误信息。
+
+```go
+
+func database() error {
+	return errors.New("data")
+}
+
+func cache() error {
+	if err := database(); err != nil {
+		return fmt.Errorf("cache miss: %w", err)
+	}
+
+	return nil
+}
+
+func handle() error {
+	return cache()
+}
+
+func main() {
+	fmt.Println(handle())
+}
+
+// cache miss: data
+```
+
+
+
+从错误树获取信息。
+
+```go
+type TestError struct {}
+func (*TestError) Error() string { return "" }
+
+func main() {
+    
+    // 打包。
+	a := errors.New("a")
+	b := fmt.Errorf("b, %w", a)
+	c := fmt.Errorf("c, %w", b)
+    
+    fmt.Println(c)                      // c, b, a
+    fmt.Println(errors.Unwrap(c) == b)  // true
+
+    // 递归检查。
+    fmt.Println(errors.Is(c, a))        // true
+
+	// -------------------------------
+
+	x := &TestError{}
+	y := fmt.Errorf("y, %w", x)
+	z := fmt.Errorf("z, %w", y)
+ 
+    // 提取（二级指针）类型匹配的错误对象。
+	var x2 *TestError
+	if errors.As(z, &x2) {
+        fmt.Println(x == x2)           // true
+	}
+}
+```
+
+#### panic
+
+与返回 `error` 相比，`panic`/`recover `的使用方式，很像结构化异常。
+
+```go
+func panic(v any)
+func recover() any
+```
+
+
+
+恐慌（`panic`）立即中断当前流程，执行延迟调用。 在延迟调用中，恢复（`recover`） 捕获并返回恐慌数据。
+
+●沿调用堆栈向外传递，直至被捕获，或进程崩溃。
+●连续引发`panic`，仅最后一次可被捕获。
+
+●先捕获`panic`，恢复执行，然后才返回数据。
+●恢复之后，可再度引发`panic`，可再次捕获。
+
+●无论恢复与否，延迟调用总会执行。
+●延迟调用中引发`panic`，不影响后续延迟调用执行。
+
+```go
+func main() {
+	defer func() {
+        // 拦截panic，返回数据。
+        // 数据未必是 error，也可能是 nil。
+        // 无法回到 panic 后续位置继续执行。
+        
+		if r := recover(); r != nil {
+			log.Fatalln(r)
+		}
+        
+	}()
+    
+    func() {
+		panic("p1")   // 终止当前函数，执行 defer。
+	}()
+	
+	println("exit.")  // 即便 recover，也不再执行。
+}
+
+// p1
+```
+
+```go
+func main() {
+	defer func() {
+        // 只有最后一次被捕获。
+		if err := recover(); err != nil {
+			log.Fatalln(err)
+		}
+        
+	}()
+    
+    func() {
+    	defer func(){
+    		panic("p2")  // 第二次。
+    	}()
+		panic("p1")      // 第一次。
+	}()
+	println("exit.")
+}
+
+// p2
+```
+
+```go
+func main() {
+	defer func() {
+		log.Println(recover())      // 捕获第二次：p2
+	}()
+    
+    func() {
+    	defer func(){
+    		panic("p2")             // 第二次！
+    	}()
+
+    	defer func() {
+    		log.Println(recover())  // 捕获第一次：p1
+    	}()
+
+		panic("p1")                 // 第一次！
+	}()
+
+	println("exit.")
+}
+
+// p1
+// p2
+```
+
+
+
+恢复函数 `recover` 只能在延迟调用（`topmost`）内正确执行。 直接注册为延迟调用，或被延迟函数间接调用都无法捕获恐慌。
+
+```go
+func catch() {
+	recover()
+}
+
+func main() {
+	defer catch()                   // 有效！在延迟函数内直接调用。
+	// defer log.Println(recover()) // 无效！作为参数立即执行。
+	// defer recover()              // 无效！被直接注册为延迟调用。  
+
+	panic("p!")
+}
+```
+
+
+
+以 `*PanicNilError` 替代 `nil`，使其有具体含义。
+
+在 1.21 之前，panic(nil) 和没有发生恐慌，recover 都返回 nil，无法区分这两种状态。
+
+```go
+func nopanic() {
+	defer func() {
+		e := recover()
+		println(e == nil)   // true
+	}()
+}
+
+func panicnil() {
+	defer func() {
+		e := recover()
+		println(e == nil)   // false
+
+		_, ok := e.(*runtime.PanicNilError)
+		println(ok)         // true
+	}()
+
+	panic(nil)
+}
+```
+
+
+适用场景：
+
+●在调用堆栈任意位置中断，跳转到合适位置（恢复，参数为依据）。 
+○`runtime.Goexit`：不能用于 main goroutine，进程崩溃。
+○`os.Exit`：进程立即终止，延迟调用不会执行。 
+●无法恢复的故障，输出调用堆栈现场。 
+○文件系统损坏。
+○数据库无法连接。
+○……
