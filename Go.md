@@ -2780,3 +2780,2864 @@ func panicnil() {
 ○文件系统损坏。
 ○数据库无法连接。
 ○……
+
+
+
+
+
+## 数据
+
+内置数据类型，使用及结构分析。
+
+### 字符串
+
+字符串是 不可变 字节序列，其本身是一个复合结构。
+
+```go
+ +-----------+          +---+---+---+---+---+
+ |  pointer -|--------> | h | e | l | l | o |
+ +-----------+          +---+---+---+---+---+
+ |  len = 5  |          
+ +-----------+          [...]byte, UTF-8
+ 
+    header
+```
+
+```go
+// runtime/string.go
+
+type stringStruct struct {
+	str unsafe.Pointer
+	len int
+}
+
+type stringStructDWARF struct {
+	str *byte
+	len int
+}
+```
+
+
+
+
+●编码 `UTF-8`，无 `NULL` 结尾，默认值 `""`。
+
+●使用 \`raw string\` 定义原始字符串。
+●支持` !=`、`==`、`<`、`<=`、`>=`、`>`、`+`、`+=`。
+
+●索引访问字节数组（非字符），不能获取元素地址。
+●切片返回子串，依旧指向原数组。
+●内置函数 `len` 返回字节数组长度。
+
+
+
+
+
+```go
+func main() {
+	s := "十二\x61\142\u0041"
+
+	bs := []byte(s)
+    rs := []rune(s)     // rune/int32: unicode code point
+
+    fmt.Printf("%X, %d\n", s,  len(s))
+	fmt.Printf("%X, %d\n", bs, utf8.RuneCount(bs))
+	fmt.Printf("%U, %d\n",  rs, utf8.RuneCountInString(s))
+}
+
+// E5 8D 81 E4 BA 8C 61 62 41, 9
+// E5 8D 81 E4 BA 8C 61 62 41, 5
+// [U+5341 U+4E8C U+0061 U+0062 U+0041], 5
+```
+
+```go
+func main() {
+	s := "十二abc"
+
+	fmt.Printf("%X\n", s[1])  // 8D
+
+	// println(&s[1]) 
+	// invalid operation: cannot take address of s[1]
+}
+```
+
+```go
+func main() {
+	var s string
+	println(s == "")  // true
+
+	// println(s == nil) 
+	// invalid operation: mismatched types string and untyped nil
+}
+```
+
+
+
+原始字符串（raw string）内的转义、换行、前置空格、注释等，都视作内容，不与处理。
+
+```go
+func main() {
+	s := `line\r\n,
+  line 2`
+
+	println(s)   // raw string
+}
+
+/*
+line\r\n,
+  line 2
+*/
+```
+
+
+
+以加号连接字面量时，注意操作符位置。
+
+```go
+func main() {
+	s := "ab" +           // 跨行时，加法操作符必须在上行结尾。
+		 "cd"
+
+	println(s == "abcd")  // true
+	println(s > "abc")    // true
+}
+```
+
+
+
+子串内部指针依旧指向原字节数组。
+
+```go
+func main() {
+	s := "hello, world!"
+	s2 := s[:4]
+
+	p1 := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	p2 := (*reflect.StringHeader)(unsafe.Pointer(&s2))
+
+	fmt.Printf("%#v, %#v\n", p1, p2)
+}
+
+// &StringHeader{ Data:0x497208, Len:13 }
+// &StringHeader{ Data:0x497208, Len:4 }
+```
+
+
+
+遍历，分 `byte` 和 `rune`两种方式。
+
+```go
+func main() {
+	s := "十二12"
+    
+    // byte
+	for i := 0; i < len(s); i++ {         
+		fmt.Printf("%d: %X\n", i, s[i])
+	}
+    
+    // rune
+	for i, c := range s {
+		fmt.Printf("%d: %U\n", i, c)
+	}
+}
+/*
+0: E5
+1: 8D
+2: 81
+3: E4
+4: BA
+5: 8C
+6: 31
+7: 32
+
+0: U+5341
+3: U+4E8C
+6: U+0031
+7: U+0032
+*/
+```
+
+
+
+可作 `append`、`copy`参数。
+
+```go
+func main() {
+	s := "de"
+
+    bs := make([]byte, 0)
+	bs = append(bs, "abc"...)
+	bs = append(bs, s...)
+
+	buf := make([]byte, 5)
+	copy(buf, "abc")
+	copy(buf[3:], s)
+
+	fmt.Printf("%s\n", bs)   // abcde
+	fmt.Printf("%s\n", buf)  // abcde
+}
+```
+
+
+
+
+标准库相关：
+
+`bytes`：字节切片。
+`fmt`：格式化。
+`strconv`：转换。
+`strings`：函数。
+`text`：文本（模版）。
+`unicode`：码点。
+
+#### 字符串转换
+
+可在 `rune`、`byte`、`string`间转换。
+
+单引号字符字面量是 `rune`类型，代表 Unicode 字符。
+
+```go
+func main() {
+	var r rune = '我'
+
+	var s  string = string(r)
+	var b  byte   = byte(r)
+	var s2 string = string(b)
+	var r2 rune   = rune(b)
+    
+	fmt.Printf("%c, %U\n", r, r)
+	fmt.Printf("%s, %X, %X, %X\n", s, b, s2, r2)
+}
+
+// 我, U+6211
+// 我, 11, 11, 11
+```
+
+
+
+要修改字符串，须转换为可变类型（`[]rune` 或 `[]byte`），待完成后再转换回来。
+但不管如何转换，都需重新分配内存，并复制数据。
+
+```go
+
+func main() {
+	s := strings.Repeat("a", 1<<10)
+
+    // 分配内存、复制。
+	bs := []byte(s)
+	bs[1] = 'B'
+
+    // 分配内存、复制。
+	s2 := string(bs)
+
+	hs  := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	hbs := (*reflect.SliceHeader)(unsafe.Pointer(&bs))
+	hs2 := (*reflect.StringHeader)(unsafe.Pointer(&s2))
+	fmt.Printf("%#v\n%#v\n%#v\n", hs, hbs, hs2)
+}
+
+// &StringHeader{ Data:0xc0000a8000, Len:1024 }
+// &SliceHeader { Data:0xc0000a8400, Len:1024, Cap:1024 }
+// &StringHeader{ Data:0xc0000a8800, Len:1024 }
+
+// 0x400 = 1024
+```
+
+
+
+验证编码是否正确。
+
+```go
+func main() {
+	s := "十二"
+	s2 := string(s[0:2] + s[4:])  // 非法拼接。
+    
+    fmt.Printf("%X, %X \n", s, s2)
+    fmt.Println(utf8.ValidString(s2))
+}
+
+// E5 8D 81 E4 BA 8C, E5 8D BA 8C
+// false
+```
+
+#### 字符串性能优化
+
+使用 “不安全” 方法进行转换，改善性能。
+
+不动底层数组，直接构建 `string` 或`slice` 头。
+如果修改，注意内存安全。
+
+`slice { data, len, cap }`  ->` string { data, len }`
+`slice { string.data, string.len, string.len }`
+
+
+
+动态构建字符串也容易造成性能问题。
+加法操作符拼接字符串，每次都需重新分配内存和复制数据。
+改进方法是预分配内存，然后一次性返回。
+
+```go
+package test
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
+
+const N = 1000
+const C = "a"
+
+var S = strings.Repeat(C, N)
+
+
+// 性能最差
+func concat() bool {
+	var s2 string
+	for i := 0; i < N; i++ {
+		s2 += C
+	}
+	return s2 == S
+}
+
+// 其次
+func join() bool {
+	b := make([]string, N)
+	for i := 0; i < N; i++ {
+		b[i] = C
+	}
+
+	return strings.Join(b, "") == S
+}
+
+// 最好
+func buffer() bool {
+	var b bytes.Buffer
+	b.Grow(N)
+
+	for i := 0; i < N; i++ {
+		b.WriteString(C)
+	}
+
+	return b.String() == S
+}
+
+// ----------------------------------
+
+func BenchmarkConcat(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if !concat() {
+			b.Fatal()
+		}
+	}
+}
+
+func BenchmarkJoin(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if !join() {
+			b.Fatal()
+		}
+	}
+}
+
+func BenchmarkBuffer(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if !buffer() {
+			b.Fatal()
+		}
+	}
+}
+
+```
+
+```go
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkConcat-20         13267             93899 ns/op          530276 B/op        999 allocs/op
+BenchmarkJoin-20          257335              4692 ns/op            1024 B/op          1 allocs/op
+BenchmarkBuffer-20        463772              2501 ns/op            2048 B/op          2 allocs/op
+PASS
+```
+
+
+
+ `strings.Join` 实现，和上面的 buffer 类似。
+
+```go
+// strings/strings.go
+
+func Join(elems []string, sep string) string {
+	switch len(elems) {
+	case 0:
+		return ""
+	case 1:
+		return elems[0]
+	}
+    
+    // 计算总长度。
+	n := len(sep) * (len(elems) - 1)
+	for i := 0; i < len(elems); i++ {
+		n += len(elems[i])
+	}
+
+    // 预分配，循环写入。
+	var b Builder
+	b.Grow(n)
+	b.WriteString(elems[0])
+	for _, s := range elems[1:] {
+		b.WriteString(sep)
+		b.WriteString(s)
+	}
+	return b.String()
+}
+```
+
+
+
+编译器对字面量 + 号拼接会优化。
+如此之外，还可以用 `fmt.Sprintf`、`text/template`等方式进行。
+
+字符串某些看似简单的操作，都可能引发堆内存分配和复制。
+事实上，编译器和运行时也会采取非常规手段进行优化。
+
+### 数组
+
+数组是单一内存块，并无其他附加结构。
+
+```go
+  +---+---+---+----//---+----+
+  | 0 | 1 | 2 | ... ... | 99 |   [100]int
+  +---+---+---+----//---+----+
+```
+
+
+数组长度必须是 非负整型常量 表达式。
+长度是数组类型组成部分。
+
+初始化多维数组，仅第一维度允许用 `...`。
+初始化复合类型，可省略元素类型标签。
+
+内置函数 `len` 和 `cap` 都返回一维长度。
+元素类型支持 `==`、`!=`，那么数组也支持。
+
+支持数组指针直接访问。
+支持获取元素指针。
+值传递，复制整个数组。
+
+```go
+func main() {
+	var d1 [unsafe.Sizeof(0)]int  // 编译期计算。
+	var d2 [2]int                 // 元素类型相同，长度不同！
+    
+	// d1 = d2 // ~ cannot use [2]int as type [8]int in assignment
+}
+```
+
+
+
+灵活初始化方式。
+
+```go
+func main() {
+	var a [4]int                 // 元素自动初始化为零。
+    
+	b := [4]int{2, 5}            // 未提供初始值的元素自动初始化为 0。
+	c := [4]int{5, 3: 10}        // 可指定索引位置初始化。
+	d := [...]int{1, 2, 3}       // 编译器按初始化值数量确定数组长度。
+	e := [...]int{10, 3: 100}    // 支持索引初始化，数组长度与此有关。
+    
+	fmt.Println(a, b, c, d, e)
+}
+
+/*
+
+a: [0 0 0 0]
+b: [2 5 0 0]
+c: [5 0 0 10]
+d: [1 2 3]
+e: [10 0 0 100]
+
+*/
+```
+
+```go
+func main() {
+	type user struct {
+		id   int
+		name string
+	}
+
+	_ = [...]user{    // 这里不能省略。
+		{1, "zs"},    // 元素类型标签可省略。
+		{2, "ls"},
+	}
+}
+```
+
+```go
+func main() {
+	// var x [2]int = {2, 5} // ~ syntax error
+
+	// var y [...]int = [2]int{2, 5} //~ invalid use of [...] array (outside a composite literal)
+}
+```
+
+
+
+多维数组依旧是连续内存存储。
+
+```go
+func main() {
+    x := [...][2]int{
+        {1, 2},
+        {3, 4},
+    }
+
+    y := [...][3][2]int{
+        {
+            {1, 2}, 
+            {3, 4},
+            {5, 6},
+        },
+        {
+            {10, 11},
+            {12, 13},
+            {14, 15},
+        },
+    }
+
+    fmt.Println(x, len(x), cap(x))  // 2, 2
+    fmt.Println(y, len(y), cap(y))  // 2, 2
+}
+
+/*
+
+(gdb) x/4xg &x
+0xc000066df0:   0x0000000000000001      0x0000000000000002
+0xc000066e00:   0x0000000000000003      0x0000000000000004
+
+(gdb) x/12xg &y
+0xc000066e30:   0x0000000000000001      0x0000000000000002
+0xc000066e40:   0x0000000000000003      0x0000000000000004
+0xc000066e50:   0x0000000000000005      0x0000000000000006
+0xc000066e60:   0x000000000000000a      0x000000000000000b
+0xc000066e70:   0x000000000000000c      0x000000000000000d
+0xc000066e80:   0x000000000000000e      0x000000000000000f
+
+*/
+```
+
+
+
+相等比较，须元素支持。
+
+```go
+func main() {
+	var a, b [2]int
+	println(a == b)     // true
+
+	c := [2]int{1, 2}
+	d := [2]int{0, 1}
+	println(c == d)     // false
+
+	// var e, f [2]map[string]int
+	// println(e == f) 	// ~ [2]map[string]int cannot be compared
+}
+```
+
+
+
+#### 指针
+
+注意区别不同指针及称谓。
+
+数组指针：`&array`，指向整个数组的指针。
+元素指针：`&array[0]`，指向某个元素的指针。
+指针数组：`[...]*int{ &a, &b }`，元素是指针的数组。
+
+```go
+func main() {
+	d := [...]int{ 0, 1, 2, 3 }
+
+	var p  *[4]int = &d       // 数组指针。
+	var pe *int    = &d[1]    // 元素指针。
+
+    p[0] += 10          // 相当于 (*p)[0]
+	*pe += 20
+
+	fmt.Println(d)
+}
+
+// [10 21 2 3]
+```
+
+```go
+func main() {
+	a, b := 1, 2
+
+	d := [...]*int{ &a, &b }   // 指针数组。
+	*d[1] += 10                // d[1] 返回 b 指针。
+
+	fmt.Println(d)
+	fmt.Println(a, b)
+}
+
+// [0xc000014080 0xc000014088]
+// 1 12
+```
+
+
+
+#### 复制
+
+鉴于数组传递会整个复制，可使切片或指针代替。
+
+```go
+
+func val(d [3]byte) [3]byte {
+	fmt.Printf("val: %p\n", &d)
+
+	d[0] += 100
+	return d
+}
+
+func ptr(p *[3]byte) *[3]byte {
+	fmt.Printf("ptr: %p\n", p)
+
+	p[0] += 200
+	return p
+}
+
+func main() {
+	 d := [...]byte{ 1, 2, 3 }
+	d2 := d
+	d3 := *(&d)
+
+	fmt.Printf(" d: %p\n", &d)
+	fmt.Printf("d2: %p\n", &d2)
+	fmt.Printf("d3: %p\n", &d3)
+
+	// ---------------------
+
+	d4 := val(d)
+	fmt.Printf("val.ret: %p\n", &d4)
+
+	p := ptr(&d)
+	fmt.Printf("val.ret: %p\n", p)	
+
+	// ---------------------
+
+	fmt.Printf("d: %v\n", d)
+}
+
+/*
+      d: 0xc000014080
+     d2: 0xc000014083
+     d3: 0xc000014086
+
+    val: 0xc00001409b
+val.ret: 0xc000014098
+
+    ptr: 0xc000014080
+val.ret: 0xc000014080
+
+      d: [201 2 3]
+*/
+```
+
+### 切片
+
+切片以指针引用底层数组片段，限定读写区域。类似胖指针，而非动态数组或数组指针。
+
+```go
+  +---------+            +---+---+----//---+----+
+  |  array -|----------> | 0 | 1 | ... ... | 99 |
+  +---------+            +---+---+----//---+----+
+  |  len    |            
+  +---------+            array
+  |  cap    |
+  +---------+
+  
+     header
+     
+```
+
+```go
+// runtime/slice.go
+
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
+}
+```
+
+
+
+引用类型，未初始化为 nil。
+基于数组、初始化值或 make 函数创建。
+
+函数 `len` 返回元素数量，`cap` 返回容量。
+仅能判断是否为 `nil`，不支持其他 `==`、`!=` 操作。
+
+以索引访问元素，可获取底层数组元素指针。
+底层数组可能在堆上分配。
+
+```go
++---+---+---+---+---+---+---+---+---+---+   
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |   array
++---+---+---+---+---+---+---+---+---+---+   
+        |               |       |           slice: [low : high : max]
+        |<--- s.len --->|       |           
+        |                       |           len = high - low
+        |<------- s.cap ------->|           cap = max  - low
+```
+
+```go
+func main() {
+	a := [...]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} // array
+    
+	s := a[2:6:8]   
+
+	fmt.Println(s)
+	fmt.Println(len(s), cap(s))
+
+    // 引用原数组。
+	fmt.Printf("a: %p ~ %p\n", &a[0], &a[len(a) - 1])
+	fmt.Printf("s: %p ~ %p\n", &s[0], &s[len(s) - 1])
+}
+
+/*
+
+ s: [2 3 4 5], len = 4, cap = 6
+
+ a: 0xc00007a000 ~ 0xc00007a048
+ s: 0xc00007a010 ~ 0xc00007a028
+ 
+*/
+```
+
+
+
+`slice.len`：限定索引或迭代读取数据范围。
+`slice.cap`：重新切片（reslice）允许范围。
+
+```go
+func main() {
+	a := [...]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	s := a[2:6:8] 
+
+	// fmt.Println(s[5]) // ~ index out of range [5] with length 4
+
+	for i, x := range s {
+		fmt.Printf("s[%d]: %d\n", i, x)
+	}
+}
+
+/*
+
+# 切片引用原数组，此图只为方便理解。
+
+
++---+---+---+---+---+---+---+---+---+---+   
+| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |   a: [10]int
++---+---+---+---+---+---+---+---+---+---+   
+        .                       .
+        +---+---+---+---+---+---+
+        | 2 | 3 | 4 | 5 |   |   |           s: a[2:6:8]  // a[起始索引:结束索引:切片容量]
+        +---+---+---+---+---+---+
+        0   1   2   3   
+
+
+s[0]: 2
+s[1]: 3
+s[2]: 4
+s[3]: 5
+
+*/
+```
+
+```go
+func main() {
+	a := [...]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	s := a[2:6:8]
+
+	s1 := s[0:2:4]
+	fmt.Println(s1, len(s1), cap(s1))
+
+	s2 := s[1:6]
+	fmt.Println(s2, len(s2), cap(s2))
+    
+	// _ = s[1:7] // ~ slice bounds out of range [:7] with capacity 6
+}
+
+/*
+
+# 切片的数据来自底层数组，重切片只是调整引用范围。
+# 重切片受原 cap 限制，而非 len。
+
+
+        +---+---+---+---+---+
+        | 3 | 4 | 5 | 6 | 7 |     s2: s[1:6]
+        +---+---+---+---+---+
+        .                   .
+    +---+---+---+---+---+---+
+    | 2 | 3 | 4 | 5 |   |   |     s
+    +---+---+---+---+---+---+
+    .               .
+    +---+---+---+---+
+    | 2 | 3 |   |   |             s1: s[0:2:4]
+    +---+---+---+---+
+
+
+s1: [2 3],       len = 2, cap = 4
+s2: [3 4 5 6 7], len = 5, cap = 5
+
+*/
+```
+
+
+
+构造切片的常见方法。
+
+```go
+func main() {
+	a := [...]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	s := a[:]
+
+    fmt.Println(s, len(s), cap(s))
+}
+
+/*
+
+ expr       slice                  len   cap  
+----------+-----------------------+----+-----+---------------
+ a[:]       [0 1 2 3 4 5 6 7 8 9]   10    10    a[0:len(a)]
+ a[2:5]     [2 3 4]                  3     8
+ a[2:5:7]   [2 3 4]                  3     5
+ a[4:]      [4 5 6 7 8 9]            6     6    a[4:len(a)]
+ a[:4]      [0 1 2 3]                4     10   a[0:4]
+ a[:4:6]    [0 1 2 3]                4     6    a[0:4:6]
+
+*/
+```
+
+```go
+func main() {
+    
+    // 按初始化值，自动分配底层数组。
+	s1 := []int{ 0, 1, 2, 3 }
+	fmt.Println(s1, len(s1), cap(s1))
+
+    // 自动创建底层数组。
+	s2 := make([]int, 5)
+	fmt.Println(s2, len(s2), cap(s2))
+
+	s3 := make([]int, 0, 5)
+	fmt.Println(s3, len(s3), cap(s3))
+}
+
+/*
+
+s1: [0 1 2 3],   len = 4, cap = 4
+s2: [0 0 0 0 0], len = 5, cap = 5
+s3: [],          len = 0, cap = 5
+
+*/
+```
+
+
+
+作为引用类型，初始化与否很重要。
+
+编译器可能将零长度对象`（len == 0 && cap == 0）`指向固定全局变量` zerobase`。
+
+```go
+func p(s []int) {
+	fmt.Printf("%t, %d, %#v\n", 
+		s == nil,
+		unsafe.Sizeof(s),
+		(*reflect.SliceHeader)(unsafe.Pointer(&s)))
+}
+
+func main() {
+    
+    // 仅分配 header 内存，未初始化。
+	var s1 []int
+    
+    // 初始化。
+	s2 := []int{}
+    
+    // 调用 makeslice 初始化。
+	s3 := make([]int, 0)
+
+	p(s1)
+	p(s2)
+	p(s3)
+}
+
+/*
+
+s1: true,  24, &SliceHeader{Data:0x0,      Len:0, Cap:0}
+s2: false, 24, &SliceHeader{Data:0x5521d0, Len:0, Cap:0}
+s3: false, 24, &SliceHeader{Data:0x5521d0, Len:0, Cap:0}
+
+$ nm test | grep 5521d0
+00000000005521d0 B runtime.zerobase
+
+*/
+```
+
+
+
+切片不支持比较操作。
+
+```go
+func main() {
+	s1 := []int{ 1, 2 }
+	s2 := []int{ 1, 2, 3 }
+
+	println(s1 == nil)
+
+	// println(s1 == s2)
+	//         ~~~~~~~~ invalid: slice can only be compared to nil
+}
+```
+
+函数 `clear` 仅将 `[0, len)` 范围内的元素重置为零值（memclr），不修改相关属性。
+
+```go
+func main() {
+	a := [...]int{1, 2, 10: 100}
+	s := a[:2:6]
+
+	fmt.Printf("%v, len:%d, cap:%d, ptr: %p\n", s, len(s), cap(s), &s[0])
+
+	clear(s)
+	fmt.Printf("%v, len:%d, cap:%d, ptr: %p\n", s, len(s), cap(s), &s[0])
+
+	fmt.Printf("%v", a)
+}
+
+
+/*
+    [1 2], len:2, cap:6, ptr: 0xc00007e120
+    [0 0], len:2, cap:6, ptr: 0xc00007e120
+    [0 0 0 0 0 0 0 0 0 0 100]
+*/
+```
+
+
+
+#### 切片转换
+
+切片可直接转回数组或数组指针。
+
+```go
+func main() {
+	var a [4]int = [...]int{ 0, 1, 2, 3 }
+	
+	// array -> slice: 指向原数组
+	var s  []int = a[:]
+	println(&s[0] == &a[0])     // true
+
+	// slice -> array: 复制底层数组（片段）
+	a2 := [4]int(s)
+	println(&a2[0] == &a[0])   // false
+
+	// slice -> *array: 返回底层数组（片段）指针
+	p2 := (*[4]int)(s)
+	println(p2 == &a)         // true
+	
+}
+```
+
+#### 切片指针
+
+可获取元素指针，但不能以切片指针访问元素。
+
+```go
+func main() {
+	a := [...]int{ 0, 1, 2, 3 }
+	s := a[:]
+
+	p := &s      // 切片指针
+	e := &s[1]   // 元素指针
+
+	// 数组指针直接指向元素所在内存。
+	// 切片指针指向 header 内存。
+
+	// _ = p[1] // ~ invalid: cannot index p (variable of type *[]int)
+	_ = (*p)[1]
+
+
+	// 元素指针指向数组。
+
+	*e += 100
+
+	fmt.Println(e == &a[1])  // true
+	fmt.Println(a)           // [0 101 2 3]
+}
+```
+
+
+
+指针相关操作。
+
+```go
+func main() {
+	var a [4]int = [...]int{ 0, 1, 2, 3 }
+
+	// 基于数组指针创建切片。
+	var p *[4]int = &a
+	var s []int   = p[:]
+
+	println(&s[2] == &a[2])   // true
+
+	// 基于非数组指针创建切片。
+	p2 := (*byte)(unsafe.Pointer(&a[2]))  // 元素指针
+	var s2 []byte = unsafe.Slice(p2, 8)
+	
+	fmt.Println(s2)
+}
+
+// [2 0 0 0 0 0 0 0]
+```
+
+```go
+func main() {
+	var a [3]byte = [...]byte{ 'a', 'b', 'c' }
+	var s []byte  = a[:]
+
+	// 返回切片底层数组首个元素指针。
+	println(unsafe.SliceData(s) == &a[0])          // true
+
+	// 构建字符串，返回底层数组指针。
+	var str string = unsafe.String(&s[0], len(s))
+	println(unsafe.StringData(str) == &a[0])      // true
+}
+```
+
+
+
+切片本身只是 3 个整数字段的小对象，可直接值传递。 
+另外，编译器尽可能将底层数组分配在栈上，以提升性能。
+
+```go
+
+package main
+
+//go:noinline
+func sum(s []int) (n int) {
+	for _, v := range s {
+		n += v
+	}
+
+	return
+}
+
+func main() {
+	s := []int{ 1, 2, 3 }
+	println(sum(s))
+}
+
+/*
+
+$ go build -o test
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+        s := []int{ 1, 2, 3 }
+  0x462c20              MOVQ $0x1, 0x20(SP)  ; array
+  0x462c29              MOVQ $0x2, 0x28(SP)
+  0x462c32              MOVQ $0x3, 0x30(SP)
+        println(sum(s))                      ; header {
+  0x462c3b              LEAQ 0x20(SP), AX    ;   .array = AX
+  0x462c40              MOVL $0x3, BX        ;   .len   = BX
+  0x462c45              MOVQ BX, CX          ;   .cap   = CX
+  0x462c48              CALL main.sum(SB)    ; }
+  0x462c4d              MOVQ AX, 0x18(SP)    ; sum.return
+
+  0x462c52              CALL runtime.printlock(SB)
+  0x462c57              MOVQ 0x18(SP), AX
+  0x462c60              CALL runtime.printint(SB)
+  0x462c65              CALL runtime.printnl(SB)
+  0x462c6a              CALL runtime.printunlock(SB)
+}
+
+*/
+```
+
+
+
+#### **交错数组**
+
+如果元素也是切片，可实现类似 交错数组（jagged array）功能。
+
+不同于多维数组元素等长，交错数组的元素可以是长度不等的数组。
+
+```go
+func main() {
+	s := [][]int{
+		{1, 2},
+		{10, 20, 30},
+		{100},
+	}
+
+	s[1][2] += 100
+
+	fmt.Println(s[1])
+}
+
+// [10 20 130]
+```
+
+
+
+#### **追加**
+
+内置函数 `append `向切片追加数据。
+
+数据追加到 `s[len] `处。
+返回新切片对象，通常复用原内存。`s = append(s, ...)`
+超出 `s.cap` 限制，即便底层数组尚有空间，也会重新分配内存，并复制数据。
+新分配内存大小，通常是 `s.cap * 2`。更大切片，会减少倍数，避免浪费。
+
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+	"unsafe"
+)
+
+func pslice(name string, p *[]int) {
+	fmt.Printf("%s: %#v\n", 
+		name, *(*reflect.SliceHeader)(unsafe.Pointer(p)))
+}
+
+func main() {
+	a := [...]int{ 0, 1, 2, 3, 99:0}
+	fmt.Printf("a: %p ~ %p\n", &a[0], &a[len(a) - 1])
+
+	s := a[:4:8]
+	pslice("s", &s)
+
+	// -----------------------------
+
+    // 未超出 s.cap 限制。
+	s = append(s, []int{4, 5, 6}...)
+	pslice("a", &s)
+
+    // 超出! 新分配数组，复制数据。
+	s = append(s, []int{7, 8}...)
+	pslice("a", &s)
+
+	// -----------------------------
+
+	fmt.Println("a:", a[:len(s)])
+	fmt.Println("s:", s)
+}
+
+/*
+
+a: 0xc00007a000 ~ 0xc00007a318
+s: {Data:0xc00007a000, Len:4, Cap:8}
+
+a: {Data:0xc00007a000, Len:7, Cap:8}
+a: {Data:0xc00001e080, Len:9, Cap:16}
+
+a: [0 1 2 3 4 5 6 0 0]
+s: [0 1 2 3 4 5 6 7 8]
+
+*/
+```
+
+```go
+func main() {
+	m := make([]int, 3, 4)
+	a := append(m, 1)
+	b := append(m, 2)
+	c := append(m, 3, 4)
+	fmt.Println(m, a, b, c)
+	//0,0,0
+	//0,0,0,2
+	//0,0,0,2
+}
+```
+
+
+
+为切片预留足够容量（cap），可有效减少内存分配和复制。
+
+```go
+s := make([]int, 0, 10000)
+```
+
+
+
+#### 切片拷贝
+
+在两个切片间复制数据：
+
+允许指向同一数组。
+允许目标区间重叠。
+复制长度以较短（`len`）切片为准。
+
+```go
+func main() {
+	s := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+
+	// 在同一底层数组的不同区间复制。
+	src := s[5:8]
+	dst := s[4:]
+
+	n := copy(dst, src) 
+	fmt.Println(n, s)
+
+	// 在不同数组间复制。
+	dst = make([]int, 6) 
+
+	n = copy(dst, src)
+	fmt.Println(n, dst)
+}
+
+/*
+
+3 [0 1 2 3 5 6 7 7 8 9]
+3 [6 7 7 0 0 0]
+
+*/
+```
+
+
+
+还可直接从字符串中复制数据到字节切片。
+
+```go
+func main() {
+	b := make([]byte, 3)
+	n := copy(b, "abcde")
+	
+	fmt.Println(n, b)
+}
+
+// 3 [97 98 99]
+```
+
+
+
+若切片引用大数组，那么应考虑新建并复制。及时释放大数组，避免内存浪费。
+
+```go
+package main
+
+import (
+	"runtime"
+	"time"
+)
+
+func main() {
+	d := [...]byte{ 100<<20: 10 }
+	
+	// -- 1 --------------
+	s := d[:2]
+
+	// -- 2 --------------
+	// s := make([]byte, 2)
+	// copy(s, d[:])
+
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Second)
+		runtime.GC()
+	}
+
+	runtime.KeepAlive(&s)
+}
+
+/*
+
+$ go build && GODEBUG=gctrace=1 ./test
+
+-- 1 ------------
+gc 5 @6.188s 0%: ..., 100->100->100 MB, 200 MB goal, ..., 2 P (forced)
+
+-- 2 ------------
+gc 5 @5.827s 0%: ..., 0->0->0 MB, 4 MB goal, ..., 2 P (forced)
+
+*/
+```
+
+
+
+#### 切片应用
+
+切片除作为非正式 “数组指针” 外，还充当 动态数组 或 向量（vector）角色。 当然，更可实现一些常用数据结构。
+
+```go
+// FILO: 先进后出，栈。
+
+type Stack []int
+
+func NewStack() *Stack {
+	s := make(Stack, 0, 10)
+	return &s
+}
+
+func (s *Stack) Push(v int) {
+	*s = append(*s, v)
+}
+
+func (s *Stack) Pop() (int, bool) {
+	if len(*s) == 0 {
+		return 0, false
+	}
+
+	x, n := *s, len(*s)
+	
+	v := x[n - 1]
+	*s = x[:n - 1]
+
+	return v, true
+}
+
+// ---------------------------
+
+func main() {
+	s := NewStack()
+    
+	// push
+	for i := 0; i < 5; i++ {
+		s.Push(i + 10)
+	}
+    
+	// pop
+	for i := 0; i < 7; i++ {
+		fmt.Println(s.Pop())
+	}
+}
+
+/*
+
+14 true
+13 true
+12 true
+11 true
+10 true
+0 false
+0 false
+
+*/
+```
+
+```go
+// FIFO：先进先出，队列。
+
+type Queue []int
+
+func NewQueue() *Queue {
+	q := make(Queue, 0, 10)
+	return &q
+}
+
+func (q *Queue) Put(v int) {
+	*q = append(*q, v)
+}
+
+func (q *Queue) Get() (int, bool) {
+	if len(*q) == 0 {
+		return 0, false
+	}
+
+	x := *q
+	v := x[0]
+
+	// copy(x, x[1:])
+	// *q = x[:len(x) - 1]
+    
+    *q = append(x[:0], x[1:]...)  // 等同上两行。
+
+	return v, true
+}
+
+// ---------------------------
+
+func main() {
+	q := NewQueue()
+    
+	// put
+	for i := 0; i < 5; i++ {
+		q.Put(i + 10)
+	}
+    
+	// get
+	for i := 0; i < 7; i++ {
+		fmt.Println(q.Get())
+	}
+}
+
+/*
+
+10 true
+11 true
+12 true
+13 true
+14 true
+0 false
+0 false
+
+*/
+```
+
+
+
+容量固定，且无需移动数据的环状队列。
+
+```go
+import (
+	"log"
+	"sync"
+	"math/rand"
+	"time"
+)
+
+type Queue struct {
+	sync.Mutex
+	data []int
+	head int
+	tail int
+}
+
+func NewQueue(cap int) *Queue {
+	return &Queue{ data: make([]int, cap) }
+}
+
+func (q *Queue) Put(v int) bool {
+	q.Lock()
+	defer q.Unlock()
+
+	if q.tail - q.head == len(q.data) {
+		return false
+	}
+
+	q.data[q.tail % len(q.data)] = v
+	q.tail++
+
+	return true
+}
+
+func (q *Queue) Get() (int, bool) {
+	q.Lock()
+	defer q.Unlock()
+
+	if q.tail - q.head == 0 {
+		return 0, false
+	}
+
+	v := q.data[q.head % len(q.data)]
+	q.head++
+
+	return v, true
+}
+
+// ---------------------------
+
+func main() {
+	rand.Seed(time.Now().UnixNano())
+
+	const max = 100000
+	src := rand.Perm(max)        // 随机测试数据。
+	dst := make([]int, 0, max)
+
+	q := NewQueue(6)
+
+	// ------------------------
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// put
+	go func() {
+		defer wg.Done()
+		for _, v := range src {
+			for {
+				if ok := q.Put(v); !ok {
+					continue
+				}
+				break
+			}
+		}
+	}()
+
+	// get
+	go func() {
+		defer wg.Done()
+		for len(dst) < max {
+			if v, ok := q.Get(); ok {
+				dst = append(dst, v)
+				continue
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	// 转换成数组进行比较。
+	if *(*[max]int)(src) != *(*[max]int)(dst) {
+		log.Fatalln("fail !!!")
+	}
+
+	log.Printf("%+v\n", *q)
+}
+
+// {data:[99011 52214 53425 10572 82360 78821] head:100000 tail:100000}
+```
+
+
+
+
+
+### 字典
+
+字典（哈希表）存储键值对，一种使用频率极高的数据结构。
+
+```go
+
+   pointer              header
+   
+  +-------+          +-----------+
+  |  map -|--------> |  hmap     |
+  +-------+          +-----------+
+                     |  ...      |
+                     +-----------+       +-----//-----+
+                     |  buckets -|-----> | ...    ... |   array
+                     +-----------+       +-----//-----+
+```
+
+
+
+引用类型，无序键值对集合。
+以初始化表达式或 make 函数创建。
+
+主键须是支持 `==`、`!=` 的类型。
+可判断字典是否为 `nil`，不支持比较操作。
+
+函数 `len `返回键值对数量。
+访问不存在主键，返回零值。
+迭代以随机次序返回。
+
+值不可寻址（not addressable），需整体赋值。
+按需扩张，但不会收缩（shrink）内存。
+
+
+
+```go
+func p(m map[string]int) {
+    fmt.Printf("%t, %x\n", m == nil, *(*uintptr)(unsafe.Pointer(&m)))
+}
+
+func main() {
+
+    // 字典变量是指针类型。
+    // 未初始化，那就是空指针。
+    var m1 map[string]int
+    m2 := map[string]int{}
+    m3 := make(map[string]int, 0)
+    
+    p(m1)
+    p(m2)
+    p(m3)
+}
+
+/*
+m1: true,  0
+m2: false, c000064da0
+m3: false, c000064d70
+*/
+```
+
+```go
+func main() {
+	m1 := map[string]int {
+		"a": 1,
+		"b": 2,
+	}
+
+	// 省略复合类型标签。
+	m2 := map[string]struct {
+		id   int
+		name string
+	}{
+		"a": { 1, "u1" },
+		"b": { 2, "u2" },
+	}
+
+    // 分配足够初始容量，可减少后续扩张。
+	m3 := make(map[string]int, 10)
+	m3["a"] = 1
+
+	fmt.Println(m1, len(m1))
+	fmt.Println(m2, len(m2))
+	fmt.Println(m3, len(m3))
+}
+
+/*
+
+m1: map[a:1 b:2]            len = 2
+m2: map[a:{1 u1} b:{2 u2}]  len = 2
+m3: map[a:1] 1              len = 1
+
+*/
+```
+
+```go
+func main() {
+	m1 := map[int]int{}
+	m2 := map[int]int{}
+
+	// _ = m1 == m2 // ~ invalid: map can only be compared to nil
+}
+```
+
+
+
+建议以 `ok-idiom `访问主键，确认是否存在。
+删除（`delete`）不存在键值，不会引发错误。
+清空（`clear`）字典，不会收缩内存。
+可对 `nil `字典读、删除，但写会引发 `panic`！
+
+```go
+func main() {
+	m := map[string]int{}
+
+	// 是否有 { "a": 0 } 存在?
+    
+	x := m["a"]
+	fmt.Println(x)       // 0
+
+	x, ok := m["a"]
+	fmt.Println(x, ok)   // 0 false
+	
+	m["a"] = 0
+	x, ok = m["a"]
+	fmt.Println(x, ok)   // 0 true
+}
+```
+
+```go
+func main() {
+    var m map[string]int  // nil
+	
+	_ = m["a"]
+	delete(m, "a")
+
+	// m["a"] = 0 // ~ panic: assignment to entry in nil map
+}
+```
+
+```go
+func main() {
+    m := map[string]int {
+    	"a": 1,
+    	"b": 2,
+    }
+
+	println(len(m))	// 2
+
+	clear(m)
+	println(len(m))	// 0
+}
+```
+
+
+
+迭代字典，以 “随机” 次序返回键值。
+
+以 `struct{}` 为可忽略值类型。
+随机效果依赖键值对数量和迭代次数。
+可用作简易版随机挑选算法。
+
+```go
+func main() {
+	m := make(map[int]struct{})
+
+	for i := 0; i < 10; i++ {
+		m[i] = struct{}{}
+	}
+
+	for i := 0; i < 4; i++ {
+		for k, _ := range m {
+			print(k, ",")
+		}
+
+		println()
+	}
+}
+
+/*
+
+7,2,3,4,5,9,0,1,6,8,
+1,6,8,9,0,3,4,5,7,2,
+0,1,6,8,9,2,3,4,5,7,
+9,0,1,6,8,7,2,3,4,5,
+
+*/
+```
+
+
+
+因 内联存储、键值迁移 及 内存安全 需要，字典被设计成不可寻址。 不能直接修改值成员（结构或数组），应整体赋值，或以指针代替。
+
+内联存储有更好的性能，减少 GC 压力。
+
+```go
+func main() {
+	type user struct {
+		name string
+		age  byte
+	}
+
+    // 指针。
+	m := map[int]*user{
+		1: &user{"u1", 19},
+	}
+
+    // 返回指针，修改外部对象。
+	m[1].age = 20
+}
+```
+
+```go
+func main() {
+	m := map[string]int{ 
+        "a": 1 ,
+    }
+
+	m["a"]++    // m["a"] = m["a"] + 1
+}
+```
+
+
+
+迭代期间，新增或删除操作是安全的，但无法控制次序。
+
+```go
+func main() {
+	m := make(map[int]int)
+
+	for i := 0; i < 10; i++ {
+		m[i] = i + 10
+	}
+
+	for k := range m {
+		if k == 5 {
+			m[100] = 1000
+		}
+
+		delete(m, k)
+		fmt.Println(k, m)
+	}
+}
+```
+
+
+
+
+运行时会对字典并发操作做出检测。
+
+启用竞争检测（`data race`）查找此类问题。
+使用 `sync.Map` 代替。
+
+```go
+package main
+
+func main() {
+	m := make(map[string]int)
+
+	// write
+	go func() {
+		for {
+			m["a"] += 1
+		}
+	}()
+
+	// read
+	go func() {
+		for {
+			_ = m["b"]
+		}
+	}()
+
+	select {}
+}
+
+// fatal error: concurrent map read and map write
+```
+
+
+
+#### 字典性能优化
+
+预分配足够空间有助于提升性能，减少因扩张引发的内存分配和数据迁移操作。
+
+```go
+package main
+
+import (
+	"testing"
+)
+
+const max = 10000
+
+//go:noinline
+func test(cap int) map[int]int {
+	m := make(map[int]int, cap)
+    
+	for i := 0; i < max; i++ {
+		m[i] = i
+	}
+    
+	return m
+}
+
+// -------------------------------
+
+func BenchmarkTest(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test(0)
+	}
+}
+
+func BenchmarkTestCap(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test(max)
+	}
+}
+
+/*
+
+$ go test -bench . -benchmem
+
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkTest-20            3079            382905 ns/op          670679 B/op        161 allocs/op
+BenchmarkTestCap-20         5991            204367 ns/op          322265 B/op         12 allocs/op
+PASS
+
+*/
+```
+
+
+
+字典内联存储有长度限制。如果超出，则重新分配内存并复制。
+
+1.18 上限是 128 字节。
+
+```go
+package main
+
+import (
+	"testing"
+)
+
+const max = 100
+
+//go:noinline
+func test[T any](v T) map[int]T {
+	m := make(map[int]T, max)
+
+	for i := 0; i < max; i++ {
+		m[i] = v
+	}
+
+	return m
+}
+
+// -------------------------------
+
+func Benchmark128(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test([128]byte{1,2,3})
+	}
+}
+
+func Benchmark129(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		test([129]byte{1,2,3})
+	}
+}
+/*
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+Benchmark128-20           196035              6070 ns/op           41036 B/op          3 allocs/op
+Benchmark129-20           237856              5045 ns/op           19848 B/op        103 allocs/op
+PASS
+*/
+
+```
+
+
+
+扩张的内存不会因键值删除而收缩，必要时应新建字典。
+
+```go
+package main
+
+import (
+	"runtime"
+	"time"
+)
+
+const max = 1000000
+
+//go:noinline
+func test[T any](v T) map[int]T {
+	m := make(map[int]T, max)
+
+	for i := 0; i < max; i++ {
+		m[i] = v
+	}
+
+	return m
+}
+
+
+func main() {
+	m := test([128]byte{1,2,3})
+	// m := test([128 + 1]byte{1,2,3})
+
+	runtime.GC()
+
+	clear(m)
+
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Second)
+		runtime.GC()
+	}
+
+	runtime.KeepAlive(&m)
+}
+
+/*
+
+$ go build && GODEBUG=gctrace=1 ./test
+
+--- 128 -----------------
+
+内联：字典内存无法收缩，时间较短。
+
+gc 2 @1.023s 0%: 293->293->293 MB, (forced)
+gc 3 @2.061s 0%: 293->293->293 MB, (forced)
+gc 4 @3.066s 0%: 293->293->293 MB, (forced)
+gc 5 @4.073s 0%: 293->293->293 MB, (forced)
+gc 6 @5.076s 0%: 293->293->293 MB, (forced)
+
+--- 128 + 1 -------------
+
+外联：外部对象被回收，时间较长。
+
+gc 4 @0.335s 15%: 175->175->175 MB, (forced)
+gc 5 @1.420s  4%: 175->175->38  MB, (forced)
+gc 6 @2.452s  2%: 38->38->38    MB, (forced)
+gc 7 @3.474s  1%: 38->38->38    MB, (forced)
+gc 8 @4.497s  1%: 38->38->38    MB, (forced)
+
+*/
+```
+
+
+
+### 结构
+
+结构体将多个字段序列打包成一个复合类型。
+
+直属字段名必须唯一。
+支持自身指针类型成员。
+可用 _ 忽略字段名。
+
+支持匿名结构和空结构。
+支持匿名嵌入其他类型。
+支持为字段添加标签。
+
+仅所有字段全部支持，才可做相等操作。
+可用指针选择字段，但不支持多级指针。
+
+字段的名称、类型、标签及排列顺序属类型组成部分。
+除对齐外，编译器不会优化或调整布局。
+
+
+
+顺序初始化，必须包含全部字段值。而命名初始化，不用全部字段，也无关顺序。 建议使用命名方式，即便后续新增字段或调整排列顺序也不受影响。
+
+
+
+```go
+type node struct {
+	id    int
+	value string
+	next  *node        // 自身指针类型。
+}
+
+func main() {
+
+    // 顺序提供所有字段值，或全部忽略。
+	// n := node{ 1, "a" } // ~ too few values in struct literal
+    
+    // 按字段名初始化。
+	n := node{
+		id   : 2,
+		value: "abc",  // 注意结尾逗号
+	}
+}
+```
+
+```go
+func main() {
+    
+    // 匿名结构
+	user := struct {
+		id   int
+		name string
+	}{
+		id  : 1,
+		name: "user1",
+	}
+
+	fmt.Printf("%+v\n", user)
+    
+    // --------------------
+
+	var color struct {
+		r int
+		g int
+		b int
+	}
+
+	color.r = 1
+	color.g = 2
+	color.b = 3
+
+	fmt.Printf("%+v\n", color)
+}
+
+// {id:1 name:user1}
+// {r:1 g:2 b:3}
+```
+
+```go
+func main() {
+
+	type file struct {
+		name string
+		attr struct {
+			owner int
+			perm  int
+		}
+	}
+
+	f := file{
+		name: "test.dat",
+
+		// 因缺少类型标签，无法直接初始化。
+
+		// attr: {          
+		//    owner: 1,
+		//    perm:  0755,
+		// },
+		// ~~~~~~~~~ missing type in composite literal
+	}
+
+	f.attr.owner = 1
+	f.attr.perm = 0755
+
+	fmt.Println(f)
+}
+```
+
+
+
+**相等操作限制：**
+
+全部字段支持。
+内存布局相同，但类型不同，不能比较。
+布局相同（含字段名、标签等）的匿名结构视为同一类型。
+
+```go
+func main() {
+	type data struct {
+		x int
+		y map[string]int
+	}
+
+	d1 := data{ x: 100 }
+	d2 := data{ x: 100 }
+
+	// _  = d1 == d2 // ~ invalid: struct containing map cannot be compared
+}
+```
+
+```go
+func main() {
+    // 类型不同
+	type data1 struct {
+		x int
+	}
+	type data2 struct {
+		x int
+	}
+
+	d1 := data1{ x: 100 }
+	d2 := data2{ x: 100 }
+
+	// _  = d1 == d2 // ~ invalid: mismatched types data1 and data2
+}
+```
+
+```go
+func main() {
+    // 匿名结构类型相同的前提是
+    // 字段名、字段类型、标签和排列顺序都相同。
+	d1 := struct {
+		x int
+		s string
+	}{ 100, "abc" }
+	var d2 struct {
+		x int
+		s string
+	}
+
+	d2.x = 100
+	d2.s = "abc"
+
+	println(d1 == d2) // true
+}
+```
+
+
+
+不能以多级指针访问字段成员。
+
+```go
+
+func main() {
+	type user struct {
+		name string
+		age  int
+	}
+
+    // 直接返回指针。
+	p := &user{
+		name: "u1",
+		age:  20,
+	}
+
+	p.name = "u2"
+	p.age++
+
+    // 二级指针。
+	p2 := &p
+	
+	// p2.age++ // ~ p2.age undefined (type **user has no field or method age)
+}
+```
+
+
+
+#### 空结构
+
+空结构（`struct{}`）是指没有字段的结构类型，常用于值可被忽略的场合。 无论是其自身，还是作为元素类型，其长度都为零，但这不影响作为实体存在。
+
+```go
+func main() {
+	var a struct{}
+	var b [1000]struct{}
+
+	s := b[:]
+
+	println(unsafe.Sizeof(a), unsafe.Sizeof(b))  // 0, 0
+	println(len(s), cap(s))                      // 1000, 1000
+}
+```
+
+```go
+func main() {
+    // 结束通知，值无关紧要。
+	done := make(chan struct{})
+
+	go func(){
+		time.Sleep(time.Second)
+		close(done)
+	}()
+
+	<- done
+}
+```
+
+```go
+func main() {
+	nul := struct{}{}
+	users := make(map[int]struct{})
+
+	for i := 0; i < 100; i++ {
+		users[i] = nul
+	}
+
+	// 利用字典随机选人，值不需要。
+	for k, _ := range users {
+		println(k)
+		break
+	}
+}
+```
+
+
+
+#### 标签
+
+标签（`tag`）不是注释，而是对字段进行描述的元数据。
+
+不是数据成员，却是类型的组成部分。
+内存布局相同，允许显式类型转换。
+
+```go
+func main() {
+	type user struct {
+		id int `id`
+	}
+	type user2 struct {
+		id int `uid`
+	}
+
+	u1 := user{1}
+	u2 := user2{2}
+
+	// 类型不同。
+	// _ = u1 == u2 // ~ mismatched types user and user2
+
+	// 内存布局相同，支持转换。
+	u1 = user(u2)
+	fmt.Println(u1)
+}
+```
+
+
+
+运行期，可用反射获取标签信息。常被用作格式校验，数据库关系映射等。
+
+```go
+func main() {
+	type User struct {
+		id   int     `field:"uid"  type:"integer"`
+		name string  `field:"name" type:"text"`
+	}
+
+	t := reflect.TypeOf(User{})
+
+    for i := 0; i < t.NumField(); i++ {
+        f := t.Field(i)
+        fmt.Println(f.Name, f.Tag.Get("field"), f.Tag.Get("type"))
+    }	
+}
+
+// id: uid  integer
+// name: name text
+```
+
+
+
+#### 匿名字段
+
+所谓匿名字段（anonymous field），是指没有名字，仅有类型的字段。也被称作嵌入字段、嵌入类型。
+
+隐式以类型名为字段名。
+嵌入类型与其指针类型隐式字段名相同。
+像直属字段那样直接访问嵌入类型成员。
+
+```go
+type Attr struct {
+	perm int
+}
+
+type File struct {
+	Attr            // Attr: Attr
+	name string
+}
+
+func main() {
+	f := File {
+		name: "test.dat",
+		// 必须显式名称初始化。
+
+		// perm: 0644, // ~ unknown field 'perm' in struct literal of type File
+
+		Attr: Attr{
+			perm: 0644,
+		},
+	}
+
+	// 像直属字段访问嵌入字段。
+	fmt.Printf("%s, %o\n", f.name, f.perm)
+}
+```
+
+
+
+嵌入其他包里的类型，隐式字段名字不含包名。
+
+```go
+type data struct {
+	os.File
+}
+
+func main() {
+	d := data{
+		File: os.File{},
+	}
+
+	fmt.Printf("%#v\n", d)
+}
+```
+
+
+
+除 **接口指针** 和 **多级指针** 以外的任何 **命名类型** 都可作为匿名字段。
+
+```go
+type data struct {
+	*int              // int: *int（星号不是名字组成部分）
+	// int 			  // ~ int redeclared
+
+    fmt.Stringer
+	// *fmt.Stringer  // ~ embedded field type cannot be a pointer to an interface
+}
+
+func main() {
+
+	_ = data{
+		int: nil,
+		Stringer: nil,
+	}
+}
+```
+
+
+
+#### **匿名字段重名**
+
+直属字段与嵌入类型成员存在重名问题。
+
+编译器优先选择直属命名字段，或按嵌入层次逐级查找匿名类型成员。 如匿名类型成员被外层同名遮蔽，那么必须用显式字段名。
+
+```go
+type File struct {
+	name []byte
+}
+
+type Data struct {
+	File
+	name string    // 和 File.name 重名。
+}
+
+func main() {
+	d := Data{
+		name: "data",
+		File: File{ []byte("file") },
+	}
+    
+	d.name = "data2"               // 优先选择直属命名字段。
+	d.File.name = []byte("file2")  // 显式字段名。
+    
+	fmt.Println(d.name, d.File.name)
+}
+```
+
+
+
+如多个相同层次的匿名类型成员重名，就只能用显式字段名，因为编译器无法确定目标。
+
+```go
+type File struct {
+	name string
+}
+
+type Log struct {
+	name string
+}
+
+type Data struct {
+	File
+	Log
+}
+
+func main() {
+	d := Data{}
+	
+	// d.name = "name" // ~ ambiguous selector d.name
+
+	d.File.name = "file"
+	d.Log.name = "log"
+}
+```
+
+
+
+Go 并非传统意义上的 OOP 语言（封装、继承和多态），仅实现了最小机制。
+ 匿名嵌入是 **组合**（Composition），而非 **继承**（Inheritance）。
+ 结构虽然承载了 class 功能，但无法 **多态**（Polymorphism），只能以方法集配合接口实现。
+
+
+
+#### 结构内存
+
+不管结构包含多少字段，其内存总是一次性分配，各字段（含匿名字段成员）在相邻地址空间按定义顺序（含对齐）排列。当然，对于引用类型、字符串和指针，结构内存中只包含其基本（头部）数据。
+
+借助 `unsafe` 相关函数，输出所有字段的偏移量和长度。
+
+```go
+import (
+    "fmt"
+  . "unsafe"
+)
+
+type Point struct {
+	x, y int
+}
+
+type Value struct {
+	id    int    
+	name  string 
+	data  []byte 
+	next  *Value 
+	Point        
+}
+
+func main() {
+	v := Value{
+		id:    1,
+		name:  "test",
+		data:  []byte{1, 2, 3, 4},
+		Point: Point{x: 100, y: 200},
+	}
+
+	fmt.Printf("%p ~ %p, size: %d, align: %d\n",
+		&v, Add(Pointer(&v), Sizeof(v)), Sizeof(v), Alignof(v))
+
+	s := "%p, %d, %d\n"
+
+	fmt.Printf(s, &v.id,   Offsetof(v.id),   Sizeof(v.id))
+	fmt.Printf(s, &v.name, Offsetof(v.name), Sizeof(v.name))
+	fmt.Printf(s, &v.data, Offsetof(v.data), Sizeof(v.data))
+	fmt.Printf(s, &v.next, Offsetof(v.next), Sizeof(v.next))
+	fmt.Printf(s, &v.x,    Offsetof(v.x),    Sizeof(v.x))
+	fmt.Printf(s, &v.y,    Offsetof(v.y),    Sizeof(v.y))
+}
+
+/*
+
+     0xc00005c0a0 ~ 0xc00005c0e8, size: 72, align: 8
+
+     field   address        offset   size
+     ------+--------------+--------+--------+----------------------
+     id      0xc00005c0a0   0        8        int
+     name    0xc00005c0a8   8        16       string {ptr, len}
+     data    0xc00005c0b8   24       24       slice  {ptr, len, cap}
+     next    0xc00005c0d0   48       8        pointer
+     x       0xc00005c0d8   56       8        int
+     y       0xc00005c0e0   64       8        int
+
+
+    +0 +----------+  0xc00005c0a0
+       | id       |
+     8 +----------+  0xc00005c0a8
+       | name.ptr |
+    16 +----------+
+       | name.len |
+    24 +----------+  0xc00005c0b8
+       | data.ptr |
+    32 +----------+
+       | data.len |
+    40 +----------+
+       | data.cap |
+    48 +----------+  0xc00005c0d0
+       | next     |
+    56 +----------+  0xc00005c0d8
+       | Point.x  |
+    64 +----------+  0xc00005c0e0
+       | Point.y  |
+    72 +----------+  0xc00005c0e8
+     
+*/
+
+```
+
+
+
+对齐以所有字段中最长的基础类型宽度为准。编译器这么做的目的，即为了最大限度减少读写所需指令，也因为某些架构平台自身的要求。
+
+```go
+import (
+    "fmt"
+  . "unsafe"
+)
+
+func main() {
+	v1 := struct {
+		a byte
+		b byte
+		c int32
+	}{}
+    
+	v2 := struct {
+		a byte
+		b byte
+	}{}
+    
+	v3 := struct {
+		a byte
+		b []int
+		c byte
+	}{}
+    
+	fmt.Printf("v1: %d, %d\n", Alignof(v1), Sizeof(v1))
+	fmt.Printf("v2: %d, %d\n", Alignof(v2), Sizeof(v2))
+	fmt.Printf("v3: %d, %d\n", Alignof(v3), Sizeof(v3))
+}
+
+/*
+
+v1: 4, 8
+v2: 1, 2
+v3: 8, 40
+
+
+(gdb) x/2xw &v1
+0xc000088e88:	0x00000201	0x00000003
+
++---+---+---+---+---+---+---+---+
+| a | b | ? | ? |       c       |
++---+---+---+---+---+---+---+---+
+|<----- 4 ----->|<----- 4 ----->|
+
+(gdb) x/2xb &v2
+0xc000088e86:	0x01	0x02
+
++---+---+
+| a | b |
++---+---+
+0   1   2
+
+(gdb) x/5xg &v3
+0xc000088f48:	0x0000000000000001	0x000000c000088e90
+0xc000088f58:	0x0000000000000003	0x0000000000000003
+0xc000088f68:	0x0000000000000002
+
++---+-------+-----------+-----------+-----------+---+-------+
+| a |  ...  |   b.ptr   |   b.len   |   b.cap   | c |  ...  |
++---+-------+-----------+-----------+-----------+---+-------+
+|<--- 8 --->|<--- 8 --->|<--- 8 --->|<--- 8 --->|<--- 8 --->|
+
+*/
+```
+
+```go
+func main() {
+	d := struct {
+		a [3]byte
+		x int32
+	}{
+		a: [3]byte{1, 2, 3},
+		x: 100,
+	}
+	fmt.Println(d)
+}
+
+/*
+
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 3 | ? |      100      |
++---+---+---+---+---+---+---+---+
+|<----- 4 ----->|<----- 4 ----->|
+
+*/
+```
+
+
+
+#### 空结构的内存
+
+如果空结构是最后一个字段，那么将其当做长度 `1 `的类型，避免越界。
+其他零长度对象（`[0]int`）类似。
+
+```go
+import (
+	"fmt"
+  . "unsafe"
+)
+
+func main() {
+	v := struct {
+		a struct{}
+		b int
+		c struct{}
+	}{}
+
+	fmt.Printf("%p ~ %p, size: %d, align: %d\n",
+		&v, Add(Pointer(&v), Sizeof(v)), Sizeof(v), Alignof(v))
+
+	s := "%p, %d, %d\n"
+
+	fmt.Printf(s, &v.a, Offsetof(v.a), Sizeof(v.a))
+	fmt.Printf(s, &v.b, Offsetof(v.b), Sizeof(v.b))
+	fmt.Printf(s, &v.c, Offsetof(v.c), Sizeof(v.c))
+}
+
+/*
+
+     0xc000018070 ~ 0xc000018080, size: 16, align: 8
+     
+     field   address       offset    size
+     ------+--------------+---------+---------
+     a       0xc000018070  0         0
+     b       0xc000018070  0         8
+     c       0xc000018078  8         0
+
+
+    +0 +----------+  0xc000018070
+       |   a, b   |
+     8 +----------+  0xc000018078
+       |   c      |
+    16 +----------+  0xc000018080
+     
+*/
+```
+
+
+
+如仅有一个空结构字段，那么按 `1` 对齐，只不过长度为 `0`，且指向 `zerobase `变量。
+
+```go
+func main() {
+	v := struct {
+		a struct{}
+	}{}
+
+	fmt.Printf("%p, %d, %d\n", &v, Sizeof(v), Alignof(v))
+}
+
+/*
+
+0x5521d0, size: 0, align: 1
+
+$ nm ./test | grep 5521d0
+00000000005521d0 B runtime.zerobase
+
+*/
+```
+
+
+
+### 指针
+
+不能将内存 **地址** 与 **指针** 混为一谈。
+
+地址是内存中每个字节单元的唯一编号，而指针则是实体。指针需分配内存空间，相当于一个专门用来保存地址的整型变量。
+
+```go
+
+            x: int          p: *int
+   -------+---------------+--------------+-------
+     ...  | 100           | 0xc000000000 |  ...    memory
+   -------+---------------+--------------+-------
+          0xc000000000    0xc000000008             address
+```
+
+```go
+func main() {
+	var x int
+	var p *int = &x
+
+	*p = 100
+
+	println(p, *p)
+    // 0xc000067f28 100
+}
+```
+
+
+
+取址运算符 `&` 用于获取目标地址。
+指针运算符 `*` 间接引用目标对象。
+二级指针 `**T`，含包名则写成 `**package.T`。
+
+指针默认值 `nil`，支持 `==`、`!=` 操作。
+不支持指针运算，可借助 `unsafe `变相实现。
+
+```go
+func main() {
+
+	// 空指针也会分配内存。
+	var p *int
+	println(unsafe.Sizeof(p))  // 8
+/*
+   p: *int
+   +--------------+
+   | 0            |
+   +--------------+
+   0xc000000008
+*/
+    
+	var x int
+/*
+   p: *int                x: int
+   +---------------+      +---------------+
+   | 0             |      | 0             |
+   +---------------+      +---------------+
+   0xc000000008           0xc000000000
+*/
+    
+    
+	// 二级指针，指针的指针。
+	var pp **int = &p
+	*pp = &x
+/*
+                               +--------- *p -----------+
+                               |                        | 
+   pp: **int              p    |                 x      v 
+   +---------------+      +---------------+      +---------------+
+   | 0xc000000008 -|----->| 0xc000000000 -|----->| 0             |
+   +---------------+      +---------------+      +---------------+
+   0xc000000010           0xc000000008   ^       0xc000000000   ^
+         |                               |                      |
+         +-------- *pp ------------------+                      |
+         |                                                      |
+         +-------- **pp ----------------------------------------+
+*/
+    
+    
+	*p = 100
+    **pp += 1
+	println(**pp, *p, x)   // 101, 101, 101
+}
+```
+
+
+
+并非所有对象都能进行取址操作。
+
+```go
+func main() {
+	m := map[string]int{
+		"a": 1,
+	}
+
+	// _ = &m["a"] // ~ invalid: cannot take address of m["a"]
+}
+```
+
+
+
+支持相等运算符，但不能做加减法运算，不能做类型转换。
+如两个指针指向同一地址，或都为 `nil`，那么它们相等。
+
+```go
+func main() {
+	var b byte
+	var p *byte = &b
+
+	// p++ // ~ invalid: p++ (non-numeric type *byte) 
+	// n := (*int)(p) // ~ cannot convert *byte to *int
+}
+```
+
+```go
+func main() {
+	var p1, p2 *int
+	println(p1 == p2)   // true
+
+	var x int
+	p1, p2 = &x, &x
+	println(p1 == p2)   // true
+
+	var y int
+	p2 = &y
+	println(p1 == p2)   // false
+}
+```
+
+
+
+指针没有专门指向成员的 `->` 运算符，统一使用 `.` 选择表达式。
+
+```go
+func main() {
+	a := struct {
+		x int
+	}{ 100 }
+    
+	p := &a
+	p.x += 100
+    
+	println(p.x) // 200
+}
+```
+
+
+
+零长度（0 byte）对象指针是否相等，与版本及编译优化有关，不过肯定不等于`nil`。
+
+```go
+func main() {
+	var a, b struct{}
+	var c [0]int
+
+	pa, pb, pc := &a, &b, &c
+
+	println(pa, pb, pc)
+	println(pa == nil || pc == nil)
+	println(pa == pb)              
+}
+
+/*
+
+$ go build -gcflags "-N -l" && ./test
+
+0xc00009cf56 0xc00009cf56 0xc00009cf50
+false
+true
+
+$ go build && ./test
+
+0xc000088f70 0xc000088f70 0xc000088f70
+false
+false
+
+*/
+```
+
+
+
+借助 `unsafe`实现指针转换和运算，须自行确保内存安全。
+
+●普通指针：`*T`，包含类型信息。
+●通用指针：`Pointer`，只有地址，没有类型。
+●指针整数：`uintptr`，足以存储地址的整数。
+
+```go
+func main() {
+	d := [...]int{1, 2, 3}
+	p := &d
+
+	// *[3]int --> *int
+    p2 := (*int)(unsafe.Pointer(p))
+
+	// p2++
+	p2 = (*int)(unsafe.Add(unsafe.Pointer(p2), unsafe.Sizeof(p[0])))
+	*p2 += 100
+
+	fmt.Println(d)  // [1 102 3]
+}
+```
+
+普通指针（`*T`）和通用指针（`Pointer`）都能构成引用，影响垃圾回收。
+而 `uintptr `只是整数，不构成引用关系，无法阻止垃圾回收器清理目标对象。
+
+
