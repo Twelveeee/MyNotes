@@ -5641,3 +5641,617 @@ func main() {
 而 `uintptr `只是整数，不构成引用关系，无法阻止垃圾回收器清理目标对象。
 
 
+
+## 方法
+
+方法（`method`）是与对象实例（`instance`）相绑定的特殊函数。
+
+方法是面向对象编程的基本概念，用于维护和展示对象自身状态。对象是内敛的，每个实例都有各自不同的独立特征，以属性和方法来对外暴露。普通函数专注于算法流程，接收参数完成逻辑运算，返回结果并清理现场。也就是说，方法有持续性状态，而函数通常没有。
+
+前置接收参数（`receiver`），代表方法所属类型。
+可为当前包内除接口和指针以外的任何类型定义方法。
+不支持静态方法（`static method`）或关联函数。
+不支持重载（`overload`）。
+
+```go
+func (int) test() {} // ~ cannot define new methods on non-local type int
+
+// -------------------------
+type N *int
+func (N) test() {} // ~ invalid receiver type N (pointer or interface type)
+
+// -------------------------
+type M int
+func  (M) test(){}
+func (*M) test(){} // ~ redeclared in this block
+```
+
+
+
+对接收参数命名无限制，按惯例选用简短有意义的名称。
+如方法内部不引用实例，可省略接收参数名，仅留类型。
+
+```go
+type N int
+
+func (n N) toString() string {
+	return fmt.Sprintf("%#x", n)
+}
+
+func (N) test() {      // 省略接收参数名。
+	println("test")
+}
+
+// -----------------------------
+
+func main() {
+	var a N = 25
+	println(a.toString())
+}
+```
+
+
+
+接收参数可以是指针类型，调用时据此决定是否复制（pass by value）。
+
+注意区别：
+不能为指针和接口定义方法，是说类型 `N` 本身不能是接口和指针。
+这与作为参数列表成员的`receiver *N` 意思完全不同。
+
+方法本质上就是特殊函数，接收参数无非是其第一参数。
+只不过，在某些语言里它是隐式的 `this` 。
+
+```go
+type N int
+
+func (n N) copy() {
+	fmt.Printf("%p, %v\n", &n, n)
+}
+
+func (n *N) ref() {
+	fmt.Printf("%p, %v\n", n, *n)
+}
+
+func main() {
+	var a N = 25
+	fmt.Printf("%p\n", &a)  // 0xc000014080
+
+	a.copy()                // 0xc000014088, 25
+	N.copy(a)               // 0xc0000140a0, 25
+
+	a++
+    
+	a.ref()                 // 0xc000014080, 26
+	(*N).ref(&a)            // 0xc000014080, 26
+}
+```
+
+
+
+编译器根据接收参数类型，自动在值和指针间转换。
+Go 文档不建议一个结构同时有值接收者和指针接收者
+
+```go
+
+type N int
+func (n N) copy() {}
+func (n *N) ref() {}
+
+func main() {
+	var a N = 25
+	var p *N = &a
+
+	a.copy()
+    a.ref()     // (*N).ref(&a)
+
+    p.copy()    // N.copy(*p)
+	p.ref()
+}
+
+/*
+
+$ go build -gcflags "-N -l"
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+        var a N = 25
+  0x455254              MOVQ $0x19, 0x8(SP)     
+        var p *N = &a
+  0x45525d              LEAQ 0x8(SP), CX        
+  0x455262              MOVQ CX, 0x18(SP)       
+        a.copy()
+  0x455267              MOVQ 0x8(SP), AX        
+  0x45526c              CALL main.N.copy(SB)    
+        a.ref()
+  0x455271              LEAQ 0x8(SP), AX        ; &a
+  0x455276              CALL main.(*N).ref(SB)  
+        p.copy()
+  0x45527b              MOVQ 0x18(SP), CX       
+  0x455282              MOVQ 0(CX), AX          
+  0x45528a              CALL main.N.copy(SB)    
+        p.ref()
+  0x45528f              MOVQ 0x18(SP), AX       
+  0x455294              CALL main.(*N).ref(SB)  
+}
+
+*/
+```
+
+
+
+不能以多级指针调用方法。
+
+```go
+type N int
+func (n N) copy() {}
+func (n *N) ref() {}
+
+func main() {
+	var a N = 25
+	var p *N = &a
+
+	p2 := &p
+	// p2.copy() // ~ p2.copy undefined
+	// p2.ref() // ~ p2.ref undefined
+
+	(*p2).copy()
+	(*p2).ref()
+}
+```
+
+
+
+**如何确定接收参数（receiver）类型？**
+
+修改实例状态，用 `*T`。
+不修改状态的小对象或固定值，用 `T`。
+大对象用 `*T`，减少复制成本。
+引用类型、字符串、函数等指针包装对象，用 `T`。
+含 Mutex 等同步字段，用 `*T`，避免因复制造成锁无效。
+其他无法确定的，都用 `*T`。
+
+### **匿名嵌入**
+
+像访问匿名类型成员那样调用其方法，由编译器负责查找。
+
+```go
+type data struct {
+	sync.Mutex
+	buf [1024]byte
+}
+
+func main() {
+	d := data{}
+	d.Lock() // sync.(*Mutex).Lock()
+	defer d.Unlock()
+}
+```
+
+
+
+同名遮蔽。利用这种特性，实现类似覆盖（override）操作。
+
+和匿名字段访问类似，按最小深度优先原则。
+如两个同名方法深度相同，那么编译器无法作出选择（ambiguous selector），需显式指定。
+
+```go
+type E struct{}
+
+type T struct {
+	E
+}
+
+func   (E) toString() string { return "E" }
+func (t T) toString() string { return "T." + t.E.toString() }
+
+// ----------------------------------
+
+func main() {
+	var t T
+	println(t.toString())    // T.E
+	println(t.E.toString())  // E
+}
+```
+
+
+
+同名，但签名不同的方法。
+
+```go
+type E struct{}
+
+type T struct {
+	E
+}
+
+func (E) toString() string { return "E" }
+func (T) toString(s string) string { return "T: " + s }
+
+// ------------------------------------------
+
+func main() {
+	var t T
+
+	// println(t.toString()) // ~ not enough arguments in call to t.toString
+
+    // 选择深度最小的方法。
+	println(t.toString("abc"))   // T: abc
+
+	// 明确目标。
+	println(t.E.toString())      // E
+}
+```
+
+
+
+匿名类型的方法只能访问自己的字段，对外层一无所知。
+
+```go
+type E struct {
+	x int
+}
+
+type T struct {
+	x string	
+	E
+}
+
+func (e *E) do() {
+	e.x = 100
+	println(e.x)
+}
+
+func (t *T) do() {
+	t.x = "abc"
+	println(t.x)
+}
+
+// ------------------------------------------
+
+func main() {
+	var t T
+
+	t.do()     // abc
+	t.E.do()   // 100
+}
+
+/*
+
+可以看出 t.E.do 的 receiver 仅限于自己那段内存。
+即便把 E 作第一字断，各自方法内的寻址偏移也指向自己的内存区域。
+
+$ go build -gcflags "-l"
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+        var t T                                t: T
+  0x455314    MOVQ $0x0, 0x8(SP)        0x8 +---------+
+  0x45531d    MOVUPS X15, 0x10(SP)          | T.x.ptr |
+                                       0x10 +---------+
+        t.do()     // abc                   | T.x.len |
+  0x455323    LEAQ 0x8(SP), AX         0x18 +---------+
+  0x455328    CALL main.(*T).do(SB)         | T.E.x   |
+                                            +---------+
+        t.E.do()   // 100
+  0x45532d    LEAQ 0x18(SP), AX
+  0x455332    CALL main.(*E).do(SB)
+}
+
+*/
+```
+
+
+
+### 方法集
+
+类型有个与之相关的方法集合（method set），这决定了它是否实现某个接口。
+根据接收参数（receiver）的不同，可分为 `T` 和 `*T` 两种视角。
+
+`T.set = T`
+`*T.set = T + *T`
+
+```go
+type T int
+
+func  (T) A() {}   // 导出成员，否则反射无法获取。
+func  (T) B() {}
+func (*T) C() {}
+func (*T) D() {}
+
+func show(i interface{}) {
+	t := reflect.TypeOf(i)
+	for i := 0; i < t.NumMethod(); i++ {
+		println(t.Method(i).Name)
+	}	
+}
+
+func main() {
+	var n T = 1
+	var p *T = &n
+
+	show(n)         //  T = [A, B]
+	show(p)         // *T = [A, B, C, D]
+}
+```
+
+
+
+直接方法调用，不涉及方法集。编译器自动转换所需参数（receiver）。
+而转换（赋值）接口（interface）时，须检查方法集是否完全实现接口声明。
+
+```go
+type Xer interface {
+	B()
+	C()
+}
+
+type T int
+
+func  (T) A() {}
+func  (T) B() {}
+func (*T) C() {}
+func (*T) D() {}
+
+func main() {
+	var n T = 1
+
+    // 方法调用：不涉及方法集。
+	n.B()         
+	n.C()
+
+    // 接口：检查方法集。
+	// var x Xer = n // ~ T does not implement Xer (C method has pointer receiver)
+
+	var x Xer = &n
+	x.B()
+	x.C()
+}
+```
+
+
+
+首先，接口会复制对象，且复制品 不能寻址（unaddressable）。
+如 `T` 实现接口，透过接口调用时，`receiver `可被复制，却不能获取指针（`&T`）。
+相反，`*T` 实现接口，目标对象在接口以外，无论是取值还是复制指针都没问题。
+这就是方法集与接口相关，且 `T = T`，`*T = T + *T `的原因。
+
+除直属方法外，列表里还包括匿名类型（`E`）的方法。
+
+`T{ E } = T + E`
+`T{ *E } = T + E + *E`
+`*T{ E | *E } = T + *T + E + *E`
+
+```go
+type E int
+
+func  (E) V() {}
+func (*E) P() {}
+
+func show(i interface{}) {
+	t := reflect.TypeOf(i)
+	for i := 0; i < t.NumMethod(); i++ {
+		println("  ", t.Method(i).Name)
+	}	
+}
+
+func main() {
+	println("T{ E }")
+	show(struct{E}{})
+
+	println("T{ *E }")
+	show(struct{*E}{})
+
+	println("*T{ E }")
+	show(&struct{E}{})
+
+	println("*T{ *E }")
+	show(&struct{*E}{})
+}
+
+//  T{  E }: V
+//  T{ *E }: P, V
+// *T{  E }: P, V
+// *T{ *E }: P, V
+```
+
+
+
+**别名扩展**
+
+通过类型别名，对方法集进行分类，更便于维护。或新增别名，为类型添加扩展方法。
+
+```go
+type X int
+func (*X) A() { println("X.A") }
+
+type Y = X                           // 别名
+func (*Y) B() { println("Y.B") }     // 扩展方法
+
+func main() {
+	var x X
+	x.A()
+	x.B()
+
+	var y Y
+	y.A()
+	y.B()
+}
+
+```
+
+
+
+通过反射，可以看到 “扩展” 被合并的效果。
+
+```go
+type X int
+func (*X) A() { println("X.A") }
+
+type Y = X
+func (*Y) B() { println("Y.B") }
+
+func main() {
+	var n X
+	t := reflect.TypeOf(&n)
+
+	for i := 0; i < t.NumMethod(); i++ {
+		fmt.Println(t.Method(i))
+	}
+}
+
+// A: func(*main.X)
+// B: func(*main.X)
+```
+
+
+
+需要注意，不同包的类型可定义别名，但不能定义方法。
+
+```go
+type X = bytes.Buffer
+
+// func (*X) B() { println("X.b") }  // ~ cannot define new methods on non-local type
+```
+
+
+
+### 方法值
+
+和函数一样，方法除直接调用外，还可赋值给变量，或作为参数传递。
+依照引用方式不同，分为表达式（expression）和 值（value） 两种。
+
+```go
+type N int
+
+func (n *N) ref() {
+	fmt.Printf("%p, %v\n", n, *n)
+}
+
+func main() {
+	var n N = 100
+
+	// expression
+	// var e = (*N).ref
+	var e func(*N) = (*N).ref
+	e(&n)
+
+	// value
+    // var v = n.ref
+	var v func() = n.ref
+	v()
+}
+
+// 0xc000014080, 100
+// 0xc000014080, 100
+```
+
+
+
+表达式（expr）很好理解，将方法还原为普通函数，显式传递接收参数（receiver）。
+而方法值（value）似乎打包了接收参数和方法，导致签名有所不同。
+
+精简代码，看看具体如何实现。
+
+```go
+type N int
+func (n N) copy() {
+	println(n)
+}
+func (n *N) ref() {
+	println(*n)
+}
+func test(f func()) {
+	f()
+}
+
+func main() {
+	var n N = 100
+	var v func() = n.copy
+	n++
+	n.copy() // 101
+
+	v()      // 100
+	test(v)  // 100
+}
+
+/*
+$ go build -gcflags "-N -l"
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+
+    var n N = 100
+    0x4552b4     MOVQ $0x64, 0x8(SP)   
+    
+    var v func() = n.copy
+    0x4552c3     LEAQ 0x10(SP), CX               
+    0x4552cf     LEAQ N.copy-fm(SB), DX     
+    0x4552d6     MOVQ DX, 0x10(SP)               
+    0x4552dd     MOVQ 0x8(SP), DX         0x0 +-------------+
+    0x4552e2     MOVQ DX, 0x18(SP)            |             |
+    0x4552e7     MOVQ CX, 0x20(SP)        0x8 +-------------+
+                                              | n = 100     |
+    n++                                  0x10 +-------------+     
+    0x4552ec     MOVQ 0x8(SP), CX             | copy-fm     |
+    0x4552f1     LEAQ 0x1(CX), AX        0x18 +-------------+     
+    0x4552f5     MOVQ AX, 0x8(SP)             | 100         |
+                                         0x20 +-------------+
+    n.copy() // 101                           | ptr -> 0x10 |    
+    0x4552fa     CALL N.copy(SB)              +-------------+
+    
+    v()      // 100
+    0x4552ff     MOVQ 0x20(SP), DX
+    0x455304     MOVQ 0(DX), CX
+    0x455307     CALL CX          ; copy-fm
+    
+    test(v)  // 100
+    0x455309     MOVQ 0x20(SP), AX       
+    0x45530e     CALL test(SB)      
+}
+*/
+```
+
+
+
+方法值：`funcval { method-fm, receiver-copy }`。
+换成`n.ref`，无非是复制 `*N` 而已。
+
+```go
+TEXT main.N.copy-fm(SB) <autogenerated>
+
+    0x45535d     MOVQ 0x8(DX), AX      // receiver
+    0x455361     MOVQ AX, 0x8(SP)
+    0x455366     CALL N.copy(SB)
+
+
+TEXT main.test(SB)
+
+    0x455277     MOVQ 0(AX), CX       // N.copy-fm
+    0x45527a     MOVQ AX, DX          // DX
+    0x45527d     CALL CX              
+```
+
+
+
+对于空指针（`nil`），注意内存安全。
+
+```go
+type N int
+func (n N) copy() {}
+func (n *N) ref() {}
+
+// -----------------------------
+
+func main() {
+	var p *N
+
+	p.ref()         // value
+	(*N)(nil).ref() // value
+	(*N).ref(nil)   // expression
+    
+	// p.copy() // ~ runtime error: invalid memory address or nil pointer dereference
+    // N.copy(*p) // ~ runtime error: invalid memory address or nil pointer dereference
+}
+```
+
