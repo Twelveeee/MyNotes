@@ -6255,3 +6255,628 @@ func main() {
 }
 ```
 
+## 接口
+
+接口（interface）是多个方法声明集合，代表一种调用契约。
+
+只要目标类型方法集包含接口声明的全部方法，就视为实现该接口，无需显示声明。当然，单个目标类型可实现多个接口。在设计上，接口解除了显式类型依赖（DIP，依赖倒置），提供面向对象多态性。应该定义小型、灵活及组合性接口（ISP，接口隔离），减少可视方法，屏蔽对象内部结构和实现细节。
+
+不能有字段。
+只能声明方法，不能实现。
+可嵌入其他接口。
+
+通常以 `er` 作为名称后缀。
+空接口（`interface{}`,`any`）没有任何方法声明。
+
+
+接口实现的依据是方法集，所以要区分 `T.set` 和 `*T.set`。
+
+```go
+type Xer interface {
+	test()
+	toString() string
+}
+
+type N struct{}
+func (*N) test() {}
+func (N) toString() string { return "" }
+
+func main() {
+	var n N
+
+	// var t Xer = n // ~ N does not implement Xer //  test method has pointer receiver
+
+	var t Xer = &n
+
+	t.test()
+	t.toString()
+}
+```
+
+
+
+匿名接口可直接用于变量定义，或作为结构字段类型。
+
+```go
+type N struct{}
+func (N) test() {}
+
+type node struct {
+	value interface {
+		test()
+	}
+}
+
+func main() {
+	var t interface {
+		test()
+	} = N{}
+
+	n := node{ value: t }
+	n.value.test()
+}
+```
+
+
+
+空接口可被赋值任何对象。
+
+```go
+type any = interface{}     // 别名
+
+func main() {
+	var i any = 123
+	fmt.Println(i)
+
+	i = "abc"
+	fmt.Println(i)
+}
+```
+
+
+
+注意，接口会复制目标对象，通常以指针替代原始值。
+
+```go
+
+type Xer interface {
+	toString() string
+}
+
+type N struct {
+	x int
+}
+
+func (n N) toString() string { 
+	return strconv.Itoa(n.x)
+}
+
+// -------------------------
+
+func main() {
+	n := N{ 100 }
+	var x Xer = n   // copy
+
+	n.x = 200
+
+	println(n.toString())  // 200
+	println(x.toString())  // 100
+}
+```
+
+
+
+#### 匿名嵌入
+
+
+像匿名字段那样，嵌入其他接口。目标类型方法集中，必须包含嵌入接口在内的全部方法实现。
+
+相当于导入（include）声明，非继承。
+不能嵌入自身或循环嵌入。
+不允许声明重载（overload）。
+允许签名相同的声明（并集去重）。
+鼓励小接口嵌入组合。
+
+签名包括方法名、参数列表（数量、类型、排列顺序）和返回值，不包括参数名。
+
+
+```go
+type Aer interface {
+	Test()
+}
+
+type Ber interface {
+	ToString(string) string
+}
+
+type Xer interface {
+	Aer
+	Ber                            // 嵌入接口有相同声明。
+	ToString(s string) string      // 签名相同（并集去重）。
+	// ToString() string           // 不允许重载（签名不同）。
+	// ~~~~~~ duplicate method
+	Print()
+}
+
+type N struct{}
+func (N) ToString(string) string { return "" }
+func (N) Test() {}
+func (N) Print() {}
+
+
+func main() {
+	i := Xer(N{})
+	t := reflect.TypeOf(i)
+
+	for i := 0; i < t.NumMethod(); i++ {
+		fmt.Println(t.Method(i))
+	}
+}
+
+/*
+   Print:  func(main.N)
+    Test:  func(main.N)
+ToString:  func(main.N, string) string
+*/
+```
+
+
+
+#### 类型断言
+
+类型断言（Type Assertion）是一个使用在接口值上的操作，用于检查接口类型变量所持有的值是否实现了期望的接口或者具体的类型。
+
+在Go语言中类型断言的语法格式如下：
+
+```go
+value, ok := x.(T)
+```
+
+```go
+func main() {
+    var x interface{}
+    x = 10
+    value, ok := x.(int)
+    fmt.Print(value, ",", ok)
+}
+```
+
+
+
+#### 接口类型转换
+
+超集接口（即便非嵌入）可隐式转换为子集，反之不行。
+
+超集包含子集的全部声明（含嵌入）。
+和声明顺序无关。
+
+
+```go
+type Aer interface {
+	toString(string) string
+}
+
+type Xer interface {
+	test()
+	toString(string) string
+}
+
+type N struct{}
+func (*N) test() {}
+func (N) toString(s string) string { return s }
+
+func main() {
+	var x Xer = &N{}     // super
+	var a Aer = x        // sub
+
+	a.toString("abc")
+
+	// var x2 Xer = a // ~ Aer does not implement Xer (missing test method)
+	// x2 := Xer(a) //  ~ Aer does not implement Xer    
+}
+```
+
+
+
+类型推断将接口还原为原始类型，或判断是否实现了某个更具体的接口类型。
+
+
+```go
+func main() {
+	var x Xer = &N{}     // super
+	var a Aer = x        // sub
+
+    // 原始类型。
+	n, ok := a.(*N)
+	fmt.Println(n, ok)   // true
+
+    // 接口。
+	x2, ok := a.(Xer)
+	fmt.Println(x2, ok)  // true
+}
+```
+
+```go
+func main() {
+    var e any = (*int)(nil)
+	_, ok := e.(*int)
+
+	println(ok)  // true
+}
+```
+
+
+
+还可用`switch`语句在多种类型间做出推断匹配，如此空接口就有更多发挥空间。
+
+未使用变量视为错误。
+不支持 `allthrough`
+
+```go
+func main() {
+	var i any = &N{}
+
+	switch v := i.(type) {
+	case nil: 
+	case *int:
+	case func()string:
+	case *N: fmt.Println(v)
+	case Xer: fmt.Println(v)
+	default:
+	}
+}
+```
+```go
+func main() {
+	var i any = &N{}
+
+	switch v := i.(type) {   // v declared but not used
+	case *N: fallthrough     // fallthrough statement out of place
+	default:
+	}
+}
+```
+
+
+
+#### 接口比较
+
+如实现接口的动态类型支持，可做相等（`==`、`!=`）运算。
+
+```go
+func main() {
+    println(any(nil) == any(nil))
+    println(any(100) == any(100))
+
+    // println(any(map[string]int{}) == any(map[string]int{})) // ~ comparing uncomparable type map[string]int
+}
+```
+
+
+
+**允许方式：**
+
+接口类型相同。
+接口类型不同，但声明完全相同。
+接口类型是超集或子集。
+
+
+```go
+type Aer interface {
+	test()
+}
+type Ber interface {
+	test()
+}
+type Cer interface {
+	toString() string
+}
+type Xer interface {
+	test()
+	toString() string
+}
+
+type N struct { x int }
+func (N) test() {}
+func (N) toString() string { return "" }
+
+func main() {
+	a, b := N{ 100 }, N{ 100 }
+	println(a == b)               // true
+
+	// 相同类型接口。
+	println(Aer(a)  == Aer(b))    // true
+	println(Aer(&a) == Aer(&b))   // false
+
+	// 不同接口类型，但声明相同（或超集）。
+	println(Aer(a) == Ber(b))     // true
+	println(Aer(a) == Xer(b))     // true
+
+	// 不同接口类型，声明不同。
+	// println(Aer(a) == Cer(b)) // ~ mismatched types Aer and Cer
+
+	// 对象和它实现的接口类型（b impl Aer）。
+	println(Aer(a) == b)          // true
+}
+```
+
+
+
+接口内部由两个字段组成：`itab` 和 `data`。
+只有两字段都为 `nil` 时，接口才等于`nil` 。可利用反射完善判断结果。
+不能直接以指针判断，因为编译器可能将其指向 `runtime.zerobase` 或 `zeroVal` 全局变量。
+
+
+```go
+func main() {
+    var n *N
+    var x Xer = n      // type != nil
+    
+    println(x == nil)  // false
+    println(x == nil || reflect.ValueOf(x).IsNil()) // true
+}
+```
+
+```go
+func main() {
+	var t1 any                  // type == nil
+	var t2 any = ([]int)(nil)   // type != nil
+
+	println(t1 == nil)  // true
+	println(t2 == nil)  // false
+
+	println(t1 == nil || reflect.ValueOf(t1).IsNil())  // true
+	println(t2 == nil || reflect.ValueOf(t2).IsNil())  // true
+}
+```
+
+
+### 接口实现
+
+接口本身一样是静态类型，内部使用 `itab` 结构存储运行期所需的相关类型信息。
+
+
+```go
+// runtime/runtime2.go
+type iface struct {
+	tab  *itab            // 类型和方法表。
+	data unsafe.Pointer   // 目标对象指针。
+}
+
+type itab struct {
+	inter *interfacetype  // 接口类型。  
+	_type *_type          // 目标类型。
+	hash  uint32
+	_     [4]byte
+    fun   [1]uintptr      // 方法表。 offset: 24, 0x18
+}
+```
+
+
+
+**内部实现**
+
+输出编译结果，查看接口结构存储的具体内容。
+
+```go
+type Mer interface {
+	A()	
+}
+
+type Ner interface {
+	Mer
+	B(int)
+	C(string) string
+}
+
+type N int
+
+func  (N) A() {}
+func (*N) B(int) {}
+func (*N) C(string) string { return "" }
+func (*N) D() {}
+
+func main() {
+	var n N
+	var t Ner = &n
+	t.A()
+}
+```
+```Bash
+$ go build -gcflags "-N -l -S"
+
+"".main STEXT
+  LEAQ	go.itab.*"".N,"".Ner(SB), SI
+
+go.itab.*"".N,"".Ner SRODATA
+	0x0000 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	0x0010 57 9a 14 c4 00 00 00 00 00 00 00 00 00 00 00 00
+	0x0020 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	rel  0+8 t=1       type."".Ner+0
+	rel  8+8 t=1       type.*"".N+0
+	rel 24+8 t=-32767  "".(*N).A+0
+	rel 32+8 t=-32767  "".(*N).B+0
+	rel 40+8 t=-32767  "".(*N).C+0
+# 不含接口未声明的 *N.D 
+```
+
+编译器将接口和目标类型组合，生成实例（`go.itab.*"".N,"".Ner`）。
+其中有接口和目标类型引用，并在方法表（24, 0x18）静态填入具体方法地址。
+
+
+前文提及，接口有个重要特征：赋值给接口时，会复制目标对象。
+
+```go
+func main() {
+	var n N = 100
+	
+	var t1 Mer = n   // copy n
+	t1.A()
+
+	var t2 Ner = &n  // copy ptr
+	t2.B(1)
+}
+```
+```Bash
+(gdb) info locals
+
+t1 = {
+  tab = 0x477d38 <N,main.Mer>,
+  data = 0xc000032730            // data = &n_copy
+}
+
+t2 = {
+  tab = 0x477d78 <N,main.Ner>,
+  data = 0xc000032728            // data = &n
+}
+
+n = 100
+
+(gdb) p/x &n
+$1 = 0xc000032728
+
+(gdb) x/1xg 0xc000032730        ; t1.data。
+0xc000032730:   0x0000000000000064
+```
+
+
+
+因不可寻址（unaddressable），故无法修改接口内部存储的复制品。
+
+```go
+func main() {
+	var n N = 100
+
+	// var t1 Mer = n
+	// p := &(t1.(N)) // ~ cannot take address
+
+	var t2 Ner = &n    // 接口存储的是指针。
+    *(t2.(*N)) = 200   // 透过指针修改目标对象。
+
+	println(n) // 200
+}
+}
+```
+
+
+
+**动态调用**
+
+以接口调用方法，需通过方法表动态完成。
+
+```go
+//go:noinline
+func test(n Ner) {
+	n.B(9)
+}
+
+func main() {
+	var n N = 100
+	var i Ner = &n
+	test(i)
+}
+```
+```bash
+# 相比动态调用，内存逃逸才是接口导致的最大性能问题。
+
+
+$ go build -gcflags "-m"
+    moved to heap: n
+
+$ go tool objdump -S -s "main\.main" ./test
+func main() {
+        var n N = 100
+  0x455294    LEAQ 0x5d45(IP), AX
+  0x45529b    NOPL 0(AX)(AX*1)
+  0x4552a0    CALL runtime.newobject(SB)  ; heap alloc
+  0x4552a5    MOVQ $0x64, 0(AX)
+  
+        test(i)
+  0x4552ac    MOVQ AX, BX                 ; .data
+  0x4552af    LEAQ go.itab.*main.N,main.Ner(SB), AX
+  0x4552b6    CALL main.test(SB)
+}
+
+
+$ go tool objdump -S -s "main\.test" ./test
+func test(n Ner) {
+        n.B(9)
+  0x45523e    MOVQ 0x20(AX), CX  ; .itab + 32 -> B()
+  0x455242    MOVQ BX, AX        ; .data
+  0x455245    MOVL $0x9, BX      ; argument
+  0x45524a    CALL CX            ; B(.data, 0x9)
+}
+```
+
+
+
+编译器尝试以内联等方式优化，消除（或减少）因动态调用和内存逃逸导致的性能问题。
+```go
+func test(n Ner) {
+    n.B(9)
+}
+
+func main() {
+    var n N = 100
+    var i Ner = &n
+    test(i)
+}
+```
+
+
+
+优化后的代码，完全抹掉了接口的痕迹（内存逃逸和动态调用）。
+```bash
+$ go build -gcflags "-m"
+    can inline test
+    can inline main
+    inlining call to test
+
+$ go tool objdump -S -s "main\.main" ./test
+
+func main() {
+        var n N = 100
+  0x455234    MOVQ $0x64, 0x10(SP)
+
+        n.B(9)
+  0x45523e    LEAQ 0x10(SP), AX
+  0x455243    MOVL $0x9, BX
+  0x455248    CALL main.(*N).B(SB)
+}
+
+```
+
+
+
+### 接口技巧
+
+让编译器检查，确保类型实现了指定接口。
+
+```go
+type X int
+
+var _ fmt.Stringer = X(0) // ~ X does not implement fmt.Stringer (missing String method)
+```
+
+
+
+定义函数类型，包装函数，使其实现特定接口。
+
+```go
+type FuncString func() string
+
+func (f FuncString) String() string {
+	return f()
+}
+
+func main() {
+
+	f := func() string {
+		return "hello, world!"
+	}
+
+	var t fmt.Stringer = FuncString(f)
+	fmt.Println(t)
+}
+```
+
