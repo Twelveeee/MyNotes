@@ -6880,3 +6880,572 @@ func main() {
 }
 ```
 
+
+
+## 范式
+
+泛型（generic）是一种代码复用技术，有时也称作模板（template）。允许在强类型语言代码中，使用实例化时才指定的 类型参数（type parameter）。
+
+函数和类型（含接口）支持类型参数，方法暂不支持。
+支持推导，可省略类型实参（type argument）。
+通常以单个大写字母命名类型参数。
+类型参数必须有约束（constraints）。
+
+
+```go
+package main
+
+import (
+	"cmp"
+)
+
+func maxValue[T cmp.Ordered](x, y T) T {
+	if x > y { return x }
+	return y
+}
+
+func main() {
+	println(maxValue[int](1, 2))    // 实例化，类型实参。
+	println(maxValue(1.1, 1.2))     // 类型推导，省略。
+}
+```
+```go
+
+type Data[T any] struct {
+	x T
+}
+
+func (d Data[T]) test() {
+	fmt.Println(d)
+}
+
+// func (d Data[T]) test2[X any](x X) {} // ~ method must have no type parameters
+
+func main() {
+	d := Data[int]{ x: 1 }
+	d.test()
+}
+```
+
+
+
+可使用接口对类型参数进行约束，指示它能做什么。
+如果是 `any`，表示可传入任意类型对象。
+
+其实` [T any]` 还不如简写成 `[T]`。
+
+
+```go
+type N struct{}
+func (N) String() string { return "N" }
+
+func test[T fmt.Stringer](v T) {
+	fmt.Println(v)
+}
+
+func main() {
+	// test(1) // ~ int does not implement fmt.Stringer (missing method String)
+
+	test(N{})
+}
+```
+
+
+
+#### 类型集合
+
+接口的两种定义：
+
+普通接口：方法集合（method sets），指示能做什么。
+类型约束：类型集合（type sets），指示谁来做。
+
+相比普通接口 “被动、隐式” 实现，类型约束显式指定实现接口的类型集合。
+
+
+```go
+type Integer interface {
+	Signed | Unsigned
+}
+
+type Signed interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+```
+
+竖线：类型集，匹配其中任一类型即可。
+波浪线：底层类型（underlying type）是该类型的所有类型。
+
+```go
+func maxValue[T cmp.Ordered](x, y T) T {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func main() {
+	// println(maxValue(struct{}{}, struct{}{})) // ~ struct{} does not satisfy cmp.Ordered
+}
+```
+
+
+
+普通接口可用作约束，但类型约束却不能当普通接口使用。
+```go
+func main() {
+	// var x cmp.Ordered = 1 // ~ interface contains type constraints
+}
+```
+
+
+
+类型约束除类型集合外，还可以有方法声明。
+
+```go
+type A int
+type B string
+
+func (a A) Test() { println("A:", a) }
+func (b B) Test() { println("B:", b) }
+
+type Tester interface {
+	A | B
+
+	Test()                   // 集合里的类型需要实现！
+}
+
+func test[T Tester](x T) {
+	x.Test()                 // 约束调用！
+}
+
+// -----------------------------------
+
+func main() {
+	test[A](1)              // test(A(1))
+	test[B]("abc")          // test(B("abc"))
+
+	// var c Tester = A(1) // ~ interface contains type constraints
+	// c.Test()
+}
+```
+
+
+
+#### 类型约束
+
+除含类型集合的接口类型外，也可直接写入参数列表。
+```go
+[T any]            // 任意类型。
+[T int]            // 只能是 int。
+[T ~int]           // 是 int 或底层类型是 int 的类型。
+[T int | string]   // 只能是 int 或 string。
+[T io.Reader]      // 任何实现 io.Reader 接口的类型。
+```
+
+```go
+func test[T int | float32](x T) {
+	fmt.Printf("%T, %v\n", x, x)
+}
+
+func main() {
+	test(1)
+	test[float32](1.1)
+	
+	// test("abc") // ~ string does not satisfy int|float32
+}
+```
+```go
+func makeSlice[T int | float64](x T) []T {
+	s := make([]T, 10)
+	for i := 0; i < cap(s); i++ {
+		s[i] = x
+	}
+
+	return s
+
+```
+```go
+// E 是 T的切片
+func test[T int | float64, E 是 ~[]T](x E) {
+	for v := range x {
+		fmt.Println(v)
+	}
+}
+
+func main() {
+	test([]int{1, 2, 3})
+	test([]float64{1.1, 1.2, 1.3})
+}
+```
+
+
+
+如类型约束不是接口，则无法调用其成员。
+```go
+type Num int
+func (n Num) print() { println(n) }
+
+func test[T Num](n T) {
+	// n.print() // ~ n.print undefined (type T has no field or method print)
+}
+
+func main() {
+	test(1)
+}
+```
+
+
+
+#### 类型转换
+
+不支持 `switch` 类型推断（type assert），须转换为普通接口。
+
+```go
+func test[T any](x T) {
+	// switch x.(type) {} // ~ cannot use type switch on type parameter value x
+
+	// 转换为普通接口 ----------
+	switch any(x).(type) {
+	case int: println("int", x)
+	}
+}
+```
+
+
+
+#### 范式实现
+
+泛型的实现方式，通常有：
+
+模板（stenciling）：为每次调用生成代码实例，即便类型参数相同。
+字典（dictionaries）：单份代码实例，以字典传递类型参数信息。
+
+
+模板方式性能最佳，但编译时间较长，且生成文件较大。
+字典方式代码最少，但复杂度较高，且性能最差。
+
+
+**模板**
+Go 泛型实现介于两者之间，称作 `GCShape stenciling with Dictionaries`。
+任意指针类型，或具有相同底层类型（underlying type），属于同一 `GCShape` 组。
+
+
+```go
+// above are same GCShape
+
+type a int
+type b int
+type c = int
+```
+
+
+
+编译器为每个 GCShape 生成代码实例，并在每次调用时以字典传递类型信息。
+```go
+package main
+
+func test[T any](x T) {
+	println(x)
+}
+
+func main() {
+	test(1)
+
+	// same underlying type
+	type X int
+	test(X(2))
+
+	test("abc")
+}
+```
+```bash
+$ go build -gcflags "-l"
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+
+	test(1)
+  0x455214		LEAQ main..dict.test[int](SB), AX	
+  0x45521b		MOVL $0x1, BX				
+  0x455220		CALL main.test[go.shape.int](SB)	
+  
+	test(X(2))
+  0x455225		LEAQ main..dict.test[main.X.1](SB), AX  ; 字典不同。
+  0x45522c		MOVL $0x2, BX				
+  0x455231		CALL main.test[go.shape.int](SB)	      ; 函数相同。
+  
+	test("abc")
+  0x455236		LEAQ main..dict.test[string](SB), AX	
+  0x45523d		LEAQ 0xc84c(IP), BX			
+  0x455244		MOVL $0x3, CX				
+  0x455249		CALL main.test[go.shape.string](SB)	   ; 新实例。
+}
+
+
+$ go tool objdump -s "main\.test" ./test
+
+TEXT main.test[go.shape.int](SB)
+
+  main.go:3		0x455274		MOVQ BX, 0x8(SP)			      ; 并未使用字典。
+  main.go:4		0x455279		CALL runtime.printlock(SB)		
+  main.go:4		0x45527e		MOVQ 0x8(SP), AX			
+  main.go:4		0x455283		CALL runtime.printint(SB)		
+  main.go:4		0x455288		CALL runtime.printnl(SB)		
+  main.go:4		0x45528d		CALL runtime.printunlock(SB)		
+
+TEXT main.test[go.shape.string](SB)
+
+  main.go:3		0x4552d4		MOVQ CX, 0x30(SP)			
+  main.go:3		0x4552d9		MOVQ BX, 0x28(SP)			
+  main.go:4		0x4552de		NOPW					
+  main.go:4		0x4552e0		CALL runtime.printlock(SB)		
+  main.go:4		0x4552e5		MOVQ 0x28(SP), AX			
+  main.go:4		0x4552ea		MOVQ 0x30(SP), BX			
+  main.go:4		0x4552ef		CALL runtime.printstring(SB)		
+  main.go:4		0x4552f4		CALL runtime.printnl(SB)		
+  main.go:4		0x4552f9		CALL runtime.printunlock(SB)		
+```
+
+
+
+所有指针（任意类型）同组，与指针目标类型不同组。
+
+```go
+func main() {
+	a := 1
+	test(a)
+    test(&a)    // &int、&float 同组，与 int、float 不同组。
+
+	b := 1.2
+    test(&b) 
+}
+```
+```bash
+
+$ go build -gcflags "-l"
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+
+	a := 1
+  0x455214		MOVQ $0x1, 0x18(SP)	
+  
+	test(a)
+  0x45521d		LEAQ main..dict.test[int](SB), AX	
+  0x455224		MOVL $0x1, BX				
+  0x455229		CALL main.test[go.shape.int](SB)	
+  
+	test(&a)
+  0x45522e		LEAQ main..dict.test[*int](SB), AX	
+  0x455235		LEAQ 0x18(SP), BX			
+  0x45523a		CALL main.test[go.shape.*uint8](SB)	  ; 和 test(a) 不同。
+  
+	b := 1.2
+  0x45523f		MOVSD_XMM $f64.3ff3333333333333(SB), X0	
+  0x455247		MOVSD_XMM X0, 0x10(SP)			
+  
+	test(&b)
+  0x45524d		LEAQ main..dict.test[*float64](SB), AX	
+  0x455254		LEAQ 0x10(SP), BX			
+  0x455259		CALL main.test[go.shape.*uint8](SB)	  ; 和 test(&a) 相同。
+}
+
+
+$ go tool objdump -s "main\.test" ./test
+
+TEXT main.test[go.shape.int](SB)
+TEXT main.test[go.shape.*uint8](SB)
+```
+
+
+
+**字典**
+
+基于字典的动态调用细节。禁用优化，以免内联后丢失中间细节。
+```go
+package main
+
+type Tester interface {
+    test()
+    string() string
+}
+
+type N struct{}
+func (N) test() { println("test!") }
+func (N) string() string { return "N!" }
+
+func test[T Tester](x T) {
+    s := x.string()
+    println(s)
+}
+
+func main() {
+    test(N{})
+}
+```
+```bash
+$ go build -gcflags "-N -l -S"
+
+main.main STEXT
+	0x000e LEAQ	main..dict.test[main.N](SB), AX
+	0x0015 CALL	main.test[go.shape.struct {}](SB)
+
+main..dict.test[main.N] SRODATA
+	0x0000 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	rel 0+8 t=1  main.N.string+0
+	rel 0+0 t=23 type:main.N+0
+	rel 8+8 t=1  type:main.N+0
+
+main.test[go.shape.struct {}] STEXT
+	0x0015 MOVQ	(AX), CX
+	0x001b CALL	CX
+```
+
+从结果看，不管是字典还是方法表调用都像简化的接口实现。
+
+
+
+####  泛型性能优化
+
+“泛型实现有性能问题！”，争论源于 “所有类型的指针都属于同一 GCshape，共享同一份代码实例”。
+
+编译器会插入一条指令，以字典装载类型信息，通过寄存器传递给目标代码。
+必要时以接口方式处理，可能引发 动态调用、无法内联、内存逃逸 等性能问题。
+
+编译器会尝试优化掉中间环节。比如内联，直接调用目标方法。
+
+```go
+type A int32
+type B int64
+
+func (a A) test() { println(a) }
+func (b B) test() { println(b) }
+```
+```go
+type Tester interface {
+	A | B
+	test()
+}
+
+func test[T Tester](a T) {
+	a.test()
+}
+
+func main() {
+	var a A = 1
+	var b B = 2
+
+	test(a)
+	test(b)
+}
+```
+```bash
+$ go build -gcflags "-l"
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+
+	test(a)
+  0x45772e		LEAQ main..dict.test[main.A](SB), AX	
+  0x457735		MOVL $0x1, BX				
+  0x45773a		CALL main.test[go.shape.int32](SB)	   // 泛型函数调用
+  
+	test(b)
+  0x45773f		LEAQ main..dict.test[main.B](SB), AX	
+  0x457746		MOVL $0x2, BX				
+  0x45774b		CALL main.test[go.shape.int64](SB)	
+  
+}
+```
+```bash
+$ go build
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+
+	test(a)
+  0x45772e		NOPL	; 内联，直接方法调用。
+  
+	a.test()
+  0x45772f		MOVL $0x1, AX				
+  0x457734		LEAQ main..dict.test[main.A](SB), DX	
+  0x45773b		LEAQ 0xffffff1e(IP), CX			# 0x457660 <main.A.test>
+  0x457742		CALL CX					
+  
+	test(b)
+  0x457744		NOPL		
+  
+	a.test()
+  0x457745		MOVL $0x2, AX				
+  0x45774a		LEAQ main..dict.test[main.B](SB), DX	
+  0x457751		LEAQ 0xffffff68(IP), CX		 # 0x4576c0 <main.B.test>
+  0x457758		CALL CX				
+  
+}
+```
+
+
+
+与之相比，指针版本存在内存逃逸。
+
+```go
+type Tester interface {
+	*A | *B
+	test()
+}
+
+func test[T Tester](a T) {
+	a.test()
+}
+
+func main() {
+	var a A = 1
+	var b B = 2
+
+	test(&a)
+	test(&b)
+}
+```
+```bash
+$ go build
+$ go tool objdump -S -s "main\.main" ./test
+
+TEXT main.main(SB)
+func main() {
+
+	var a A = 1
+  0x45766e		LEAQ 0x64ab(IP), AX		
+  0x457675		CALL runtime.newobject(SB)	
+  0x45767a		MOVQ AX, 0x18(SP)		
+  0x45767f		MOVL $0x1, 0(AX)		
+  
+	var b B = 2
+  0x457685		LEAQ 0x64f4(IP), AX		
+  0x45768c		CALL runtime.newobject(SB)	
+  0x457691		MOVQ AX, 0x10(SP)		
+  0x457696		MOVQ $0x2, 0(AX)		
+  
+	test(&a)
+  0x45769d		NOPL			
+  
+	a.test()
+  0x45769e		LEAQ main..dict.test[*main.A](SB), DX	
+  0x4576a5		MOVQ 0x18(SP), AX			
+  0x4576aa		LEAQ main.(*A).test(SB), BX		
+  0x4576b1		CALL BX					
+  
+	test(&b)
+  0x4576b3		NOPL			
+  
+	a.test()
+  0x4576b4		MOVQ 0x10(SP), AX			
+  0x4576b9		LEAQ main..dict.test[*main.B](SB), DX	
+  0x4576c0		LEAQ main.(*B).test(SB), CX		
+  0x4576c7		CALL CX		
+  
+}
+```
