@@ -9968,3 +9968,1717 @@ $ go mod vendor                    # 将依赖复制到 ./vendor 目录下。
 $ GOWORK=off go build -mod vendor  # 禁用工作空间，以 vendor 方式编译。
 ```
 
+
+
+# 测试
+
+测试驱动开发（Test-Driven Development, TDD）是一种软件开发过程中的应用方法。
+
+实现：先写测试，然后编码快速实现。
+重构：在测试保护下，去除冗余代码，提高代码质量。
+
+优点：
+
+测试是对需求设计的翻译，比文档更易理解。
+从使用角度考虑算法设计，避免过度和无效设计。
+为保证易测试和独立测试，促使松耦合接口设计。
+持续完善测试逻辑和数据，有效减少后期返工。
+持续回归测试，让重构更容易，不必担心破坏。
+专门为错误创建测试，有效避免重复出现。
+自动化构建和监控，有效评估整体状态和质量。
+
+缺点：
+
+用例不完善，导致实现结果不理想。
+影响开发速度，比如快速原型开发。
+
+类别：
+
+单元测试（unit testing）：对程序模块进行正确性检验。
+基准测试（benchmark）：对某项性能指标进行测量和评估。
+模糊测试（fuzz testing）：输入随机数据，发现潜在错误。
+
+黑盒测试（black box）：无视内部构造，测试外部接口是否符合功能设计。
+白盒测试（white box）：深入内部构造，验证内部逻辑是否符合设计规格。
+
+
+## 单元测试
+
+为测试非导出成员，测试文件也放在目标包内。
+
+测试文件以 `_test.go` 结尾。
+
+- 通常与测试目标主文件名相同，如  `sort_test.go`。
+- 构建命令（`go build`）忽略测试文件。
+
+
+测试命令（go test）：
+
+- 忽略以 `_` 或 `.` 开头的文件。
+- 忽略 `testdata` 子目录。
+- 执行 `go vet` 检查。
+
+测试函数名 `Test<Name>`。
+
+- `Test` 为识别标记。
+- `<Name>` 为测试名称，首字母大写。如：`TestSort`。
+
+测试函数内以 `Error`、`Fail` 等方法标记失败：
+
+- `Fail`：失败，继续当前函数。
+- `FailNow`: 失败，终止当前函数。
+- `SkipNow`: 跳过，终止当前函数。
+- `Log`: 输出信息，仅失败或 `-v` 时有效。
+- `Error`:` Fail + Log`。
+- `Fatal`:` FailNow + Log`。
+- `Skip`： `SkipNow + Log`。
+- `os.Exit`：失败，测试进程终止。
+
+
+
+```go
+// main_test.go
+
+package main
+
+import (
+    "testing"
+)
+
+func TestAdd(t *testing.T) {
+    z := add(1, 2)
+    if z != 3 { t.FailNow() }
+}
+```
+```bash
+$ go test -v
+
+=== RUN   TestAdd
+--- PASS: TestAdd (0.00s)
+
+PASS
+ok  	test	0.004s
+```
+
+
+
+**模式**
+
+本地模式（local directory mode）：`go test`,` go test -v`
+不缓存测试结果。
+
+
+列表模式（package list mode）：`go test math`，`go test .`,` go test ./...`
+
+缓存结果，直接输出。避免不必要的重复运行。
+缓存输出有 (`cached`) 标记。
+某些参数（`-count`）导致缓存失效。
+执行 `go clean -testcache` 清除缓存。
+
+```bash
+$ go test .
+ok  	test	(cached)
+
+$ go test -count 2 .
+ok  	test	0.004s
+```
+
+
+
+**执行**
+```bash
+$ go test             # 测试当前包。
+$ go test math        # 测试指定包。
+$ go test ./mylib     # 使用相对路径。
+$ go test ./...       # 测试当前及所有子包。
+```
+
+执行参数：
+```bash
+$ go help test
+$ go help testflag
+```
+
+`-args`: 命令行参数。（包列表必须在此参数前）
+`-c`: 仅编译，不执行。（用 -o 修改默认测试可执行文件名）
+`-json`: 输出 JSON 格式。
+`-count`: 执行次数。（默认 1）
+`-list`: 用正则表达式列出测试函数名，不执行。
+`-run`：用正则表达式执行要执行的测试函数。
+`-skip`: 需要跳过的测试函数。
+`-timeout`: 超时 panic!（默认 10m）
+`-v`: 输出详细信息。
+`-x`: 输出构建信息。
+
+参数可添加 `test.` 前缀，比如 `-test.v`，以便区分 benchmark 参数。
+```bash
+$ go test -v -run "Add" -count 2 -timeout 1m20s ./...
+
+=== RUN   TestAdd
+    add_test.go:10: abc
+--- PASS: TestAdd (0.00s)
+
+=== RUN   TestAdd
+    add_test.go:10: abc
+--- PASS: TestAdd (0.00s)
+
+PASS
+ok  	test/mylib	0.003s
+```
+
+
+
+**并行**
+默认情况下，包内串行，多包并行。
+```go
+// main_test.go
+
+func TestA(t *testing.T) {
+    time.Sleep(time.Second * 10)
+}
+
+func TestB(t *testing.T) {
+    time.Sleep(time.Second * 10)
+}
+```
+```go
+// ./mylib/demo_test.go
+
+func TestX(t *testing.T) {
+	time.Sleep(time.Second * 10)
+}
+```
+```bash
+# 单个包，串行。
+
+$ go clean -cache -testcache
+$ time go test -v
+
+=== RUN   TestA
+--- PASS: TestA (10.01s)
+=== RUN   TestB
+--- PASS: TestB (10.01s)
+
+PASS
+ok  	test	20.022s
+
+real	0m21.960s  # <------
+user	0m1.917s
+sys		0m1.381s
+```
+```bash
+# 多个包，并行。
+
+$ go clean -cache -testcache; 
+$ time go test -v -run "Test[AX]" ./...
+
+=== RUN   TestA
+--- PASS: TestA (10.00s)
+PASS
+ok  	test	10.006s
+
+=== RUN   TestX
+--- PASS: TestX (10.00s)
+
+PASS
+ok  	test/mylib	10.006s
+
+real	0m11.956s  # <------- 
+user	0m1.915s
+sys		0m1.587s
+```
+
+
+
+参数 `-p`, `-parallel` 用于设置 `GOMAXPROCS` ，这会影响并发执行。
+```bash
+$ go clean -cache -testcache
+$ time go test -v -run "Test[AX]" -p 1 ./...
+
+=== RUN   TestA
+--- PASS: TestA (10.00s)
+PASS
+ok  	test	10.023s
+
+=== RUN   TestX
+--- PASS: TestX (10.00s)
+PASS
+ok  	test/mylib	10.008s
+
+real	0m23.227s   # <------ 
+user	0m2.371s
+sys		0m2.082s
+```
+
+
+
+调用 `t.Parallel()` 后，并发测试启动后暂停（PAUSE）。
+等所有串行测试结束后，并发再恢复（`CONT`,` continue`）执行。
+
+```go
+func TestA(t *testing.T) {
+    t.Parallel()                    // 通常放在第一行。
+    time.Sleep(time.Second * 10)
+}
+
+func TestB(t *testing.T) {
+    t.Parallel()
+    time.Sleep(time.Second * 10)
+}
+
+func TestC(t *testing.T) {
+    time.Sleep(time.Second * 10)
+}
+```
+```bash
+# AB 并行。
+$ go clean -cache -testcache; go test -v -run "[AB]"
+
+=== RUN   TestA
+=== PAUSE TestA
+
+=== RUN   TestB
+=== PAUSE TestB
+
+=== CONT  TestA
+=== CONT  TestB
+
+--- PASS: TestB (10.00s)
+--- PASS: TestA (10.00s)
+
+PASS
+ok  	test	10.011s
+```
+```bash
+# AB 并行，C 串行。
+$ go clean -cache -testcache; go test -v
+
+=== RUN   TestA
+=== PAUSE TestA
+
+=== RUN   TestB
+=== PAUSE TestB
+
+=== RUN   TestC
+--- PASS: TestC (10.01s)  // 等待串行结束。
+
+=== CONT  TestA           // A 恢复。（并发）
+=== CONT  TestB           // B 恢复。（并发）
+
+--- PASS: TestB (10.01s)
+--- PASS: TestA (10.01s)
+
+PASS
+ok  	test	20.029s
+```
+
+
+
+如设置 `-cpu`、`-count` 参数，那么同一测试函数依旧串行执行多次。
+
+```bash
+$ go clean -cache -testcache; go test -v -count 2 -run "TestA"
+
+=== RUN   TestA
+=== PAUSE TestA
+=== CONT  TestA
+--- PASS: TestA (10.01s)
+
+=== RUN   TestA
+=== PAUSE TestA
+=== CONT  TestA
+--- PASS: TestA (10.00s)
+
+PASS
+ok  	test	20.017s
+```
+
+
+
+**并行内部实现**
+每个测试函数都在独立 goroutine 内运行。
+正常情况下，执行器会阻塞，等待 test goroutine 结束。
+
+```go
+// src/testing/testing.go
+
+func runTests(...) {
+    for _, test := range tests {
+        t.Run(test.Name, test.F)   // 串行。
+    }
+}
+
+func (t *T) Run(...) {
+    go tRunner(t, f)
+	if !<-t.signal { runtime.Goexit() }    
+}
+
+func tRunner(t *T, fn func(t *T)) {
+    signal := true
+    
+	defer func() {
+		t.signal <- signal
+	}()
+    
+	defer func() {
+		t.runCleanup()
+	}()
+    
+	fn(t)    
+}
+```
+
+
+
+调用 `t.Parallel`，该方法会立即发回信号，让外部阻塞（`Run`）结束，继续下一个测试。
+自身阻塞，等待串行测试结束后发回信息，恢复执行。
+```go
+func (t *T) Parallel() {
+	t.chatty.Updatef(t.name, "=== PAUSE %s\n", t.name)
+
+	t.signal <- true   // Release calling test.
+	t.context.waitParallel()
+
+	t.chatty.Updatef(t.name, "=== CONT  %s\n", t.name)
+}
+```
+
+
+
+**测试助手**
+
+
+将调用 `Helper` 的函数标记为测试助手。
+输出测试信息时跳过助手函数，直接显示测试函数文件名、行号。
+
+直接在测试函数中调用无效。
+测试助手可用作断言。
+
+```go
+package main
+
+import (
+	"testing"
+)
+
+func assert(t *testing.T, b bool) {
+	t.Helper()
+	if !b { t.Fatal("assert fatal") }
+}
+
+func TestA(t *testing.T) {
+	assert(t, false)
+}
+```
+```bash
+$ go test -v -run "A"
+
+=== RUN   TestA
+
+main_test.go:13: assert fatal    # 不会显示助手函数信息。
+
+--- FAIL: TestA (0.00s)
+FAIL
+
+exit status 1
+FAIL	test	0.011s
+```
+
+
+
+**清除**
+为测试函数注册清理函数，在测试结束时执行。
+
+如注册多个，则按 FILO 顺序执行。
+即便发生 `panic`，也能确保清理函数执行。
+
+```go
+func TestA(t *testing.T) {
+	t.Cleanup(func(){ println("1 cleanup.") });
+	t.Cleanup(func(){ println("2 cleanup.") });
+	t.Cleanup(func(){ println("3 cleanup.") });
+
+	t.Log("body.")
+}
+```
+```bash
+$ go test -v -run "A"
+
+=== RUN   TestA
+
+body.
+
+3 cleanup.
+2 cleanup.
+1 cleanup.
+
+--- PASS: TestA (0.00s)
+PASS
+ok  	test	0.004s
+```
+
+
+
+和 defer 的区别：即便在其他函数内注册，也会等测试结束后再执行。
+```go
+func TestA(t *testing.T) {
+
+	func() {
+		t.Cleanup(func(){ println("cleanup.") });
+	}()
+
+	func() {
+		defer println("defer.")
+	}()
+
+	t.Log("body.")
+}
+```
+```bash
+$ go test -v -run "A"
+ 
+=== RUN   TestA
+
+defer.
+body.
+cleanup.
+
+--- PASS: TestA (0.00s)
+PASS
+ok  	test	0.008s
+```
+
+
+
+可用来写 `Helper` 函数。
+```go
+func newDatabase(t *testing.T) *DB {
+	t.Helper()
+
+	d := Database.Open()
+	t.Cleanup(func(){
+		d.close()
+	})
+
+	return &d
+}
+
+func TestSelect(t *testing.T) {
+    db = newDatabase(t)
+    ...
+}
+```
+
+
+
+### 子测试
+
+
+将测试函数拆分为子测试，更符合套件（suite）模式。
+
+便于编写初始化（setup）和清理（teardown）逻辑。
+表驱动（table driven）时，拆分成多个并发测试。
+便于观察子测试时间，不用考虑外部环境影响。
+
+```go
+func TestA(t *testing.T) {
+	time.Sleep(time.Second)
+}
+
+func TestB(t *testing.T) {
+	time.Sleep(time.Second)
+}
+
+func TestC(t *testing.T) {
+	time.Sleep(time.Second)
+}
+
+func TestSuite(t *testing.T) {
+	t.Log("setup")
+	defer t.Log("teardown")
+
+	t.Run("A", TestA)
+	t.Run("B", TestB)
+	t.Run("C", TestC)
+}
+```
+```bash
+$ go test -v -run "Suite"
+
+=== RUN   TestSuite
+
+    main_test.go:21: setup
+    
+=== RUN   TestSuite/A
+=== RUN   TestSuite/B
+=== RUN   TestSuite/C
+
+=== CONT  TestSuite
+
+    main_test.go:27: teardown
+    
+--- PASS: TestSuite (3.02s)
+    --- PASS: TestSuite/A (1.01s)
+    --- PASS: TestSuite/B (1.00s)
+    --- PASS: TestSuite/C (1.00s)
+    
+PASS
+ok  	test	3.028s
+```
+```bash
+# 按名称单独执行子测试。
+
+$ go test -v -run "Suite/[AB]"
+$ go test -v -run "Suite/B"
+```
+
+
+
+支持子测试并行。
+
+```go
+func TestSuite(t *testing.T) {
+	tests := []int{1, 2}
+    
+    for v := range tests {
+        
+        // 避开闭包延迟。
+        x := v
+        
+        t.Run("", func(t *testing.T) {
+            t.Parallel()
+            time.Sleep(time.Second * 5)
+            println(x)
+        })
+    }
+}
+```
+
+
+
+`Parallel` 挂起当前测试，让 `Run` 提前退出。
+上例中有 `teardown` 的话，会在子测试结束前执行。
+
+```go
+func TestSuite(t *testing.T) {
+	tests := []int{1, 2}
+
+	defer t.Log("teardown")
+    
+    for v := range tests {
+		x := v
+        
+		t.Run("", func(t *testing.T) {
+			t.Parallel()
+			time.Sleep(time.Second * 5)
+			println(x)
+		})
+	}
+}
+```
+```bash
+$ go test -v -run "Suite"
+
+=== RUN   TestSuite
+=== RUN   TestSuite/#00
+=== PAUSE TestSuite/#00
+=== RUN   TestSuite/#01
+=== PAUSE TestSuite/#01
+=== CONT  TestSuite
+
+main_test.go:31: teardown
+
+=== CONT  TestSuite/#00
+=== CONT  TestSuite/#01
+
+1
+0
+
+--- PASS: TestSuite (0.00s)
+--- PASS: TestSuite/#01 (5.01s)
+--- PASS: TestSuite/#00 (5.01s)
+
+PASS
+ok  	test	5.014s
+```
+
+
+
+解决办法，就是在外面再套一个 Run 调用。
+```go
+func TestSuite(t *testing.T) {
+	tests := []int{1, 2}
+
+    defer t.Log("teardown")
+    
+    // 不受影响。
+    t.Run("group", func(t *testing.T) {
+        for v := range tests {
+            x := v
+            
+            // 因 Parallel 提前退出。
+            t.Run("", func(t *testing.T) {
+                t.Parallel()
+                time.Sleep(time.Second * 5)
+                println(x)
+            })
+        }
+    })
+}
+```
+```bash
+$ go test -v -run "Suite"
+
+=== RUN   TestSuite
+=== RUN   TestSuite/group
+=== RUN   TestSuite/group/#00
+=== PAUSE TestSuite/group/#00
+=== RUN   TestSuite/group/#01
+=== PAUSE TestSuite/group/#01
+=== CONT  TestSuite/group/#00
+=== CONT  TestSuite/group/#01
+
+0
+1
+
+=== CONT  TestSuite
+
+    main_test.go:21: teardown
+    
+--- PASS: TestSuite (5.01s)
+    --- PASS: TestSuite/group (0.01s)
+        --- PASS: TestSuite/group/#00 (5.00s)
+        --- PASS: TestSuite/group/#01 (5.00s)
+        
+PASS
+ok  	test	5.019s
+```
+
+
+
+### 表驱动
+表驱动（`table driven`）将数据和逻辑分离，便于维护和扩展。
+
+子测试，确保所有数据被测试。（不会因错误中断）
+并行子测试，提高效率。
+
+建议用相同命名，规范化。（让维护数据的人更易读）
+使用短名 `want/got` 要比 `expected/actual` 易读。
+输出信息应该面向自然阅读。
+
+
+```go
+func add(x, y int) int {
+	return x + y
+}
+
+func TestAdd(t *testing.T) {
+    
+    // 数据表
+	var tests = []struct {
+		x    int
+		y    int
+		want int
+	}{
+		{1, 1, 2},
+		{2, 2, 6},
+		{3, 2, 5},
+	}
+
+    // 测试
+	for _, tt := range tests {
+        
+        // 规避闭包延迟。
+		o := tt 
+        
+        // 并发子测试。
+		t.Run("", func(t *testing.T) {
+			t.Parallel()
+
+            // 测试逻辑，匹配参数和结果。
+			got := add(o.x, o.y)
+			if got != o.want {
+				t.Errorf("add(%d, %d): want %d, got %d", o.x, o.y, o.want, got)
+			}
+		})
+	}
+}
+```
+```bash
+$ go test -run "Add"
+
+--- FAIL: TestAdd (0.00s)
+    --- FAIL: TestAdd/#01 (0.00s)
+    
+        main_test.go:29: add(2, 2): want 6, got 4
+        
+FAIL
+exit status 1
+FAIL	test	0.005s
+```
+
+
+
+### 覆盖率
+
+代码覆盖率（code coverage）是度量测试完整和有效性的一种手段。
+
+通过覆盖率值，分析测试代码编写质量。
+检测是否提供完备测试条件，是否执行了全部目标代码。
+量化测试，让白盒测试真正起到应有的质量保障作用。
+
+并非追求形式上的数字百分比，而是为改进测试提供一个发现缺陷的机会。
+只有测试本身质量得到保障，才能让它免于成为形式主义摆设。
+
+代码覆盖率也常被用来发现死代码（dead code）。
+
+```bash
+$ go test -cover ./mylib
+
+ok      test/mylib      0.005s  coverage: 66.7% of statements
+```
+
+
+
+获取更详细信息，可指定 covermode 和 coverprofile 参数。
+
+`set`: 检测语句是否执行。（默认）
+`count`: 检测语句执行次数。
+`atomic`: 同 `count`，但支持并发模式。
+
+```bash
+$ go test -cover -covermode count -coverprofile cover.out ./mylib
+
+ok      test/mylib      0.003s  coverage: 66.7% of statements
+
+$ cat cover.out
+
+mode: count
+test/mylib/add.go:3.24,6.2 2 1
+test/mylib/add.go:8.14,10.2 1 0
+```
+
+使用 `go tool cover` 解读 `cover.out` 文件。
+```bash
+$ go tool cover -func cover.out
+
+test/mylib/add.go:3:    add             100.0%
+test/mylib/add.go:8:    hello           0.0%
+
+total:                  (statements)    66.7%
+```
+
+
+可以 HTML 方式在浏览器查看，或存储为文件。
+
+```bash
+$ go tool cover -html cover.out
+$ go tool cover -html cover.out -o cover.html
+$ go tool cover -func cover.out -o cover.txt
+```
+
+
+
+### 技巧
+
+**示例**
+
+示例代码最大用途不是测试，而是导入到 GoDoc 等工具生成的帮助文档。
+比对输出（`stdout`）结果和内部 `output` 注释是否一致来判断是否成功。
+
+不能使用内置函数 `print/println`，因为它们输出到 `stderr`。
+没有输出注释的示例被编译，但不执行。
+```go
+func ExampleAdd() {
+    fmt.Println(add(1, 2))
+    fmt.Println(add(2, 2))
+    
+    // Output:
+    // 3
+    // 4
+}
+```
+```bash
+$ go test -v -run "Example"
+
+=== RUN   ExampleAdd
+--- PASS: ExampleAdd (0.00s)
+
+PASS
+ok      test/mylib      0.005s
+```
+
+
+
+失败，输出如下信息。
+```bash
+$ go test -v -run "Example"
+
+=== RUN   ExampleAdd
+--- FAIL: ExampleAdd (0.00s)
+got:
+3
+4
+want:
+5
+4
+
+FAIL
+FAIL    test/mylib      0.003s
+```
+
+
+
+支持无序匹配。
+```go
+func ExampleAdd() {
+	fmt.Println(add(1, 2))
+	fmt.Println(add(2, 2))
+
+	// Unordered output:
+	// 4
+	// 3
+}
+```
+
+
+
+**入口**
+像 main.main 那样，为测试提供一个入口函数。
+
+同样放在 `_test.go` 文件内。
+为整个测试过程提供 `setup/teardown` 机制。
+在 main goroutine 中执行。
+
+
+
+```go
+func TestMain(m *testing.M) {
+    
+    // setup
+    code := m.Run()			// 调用测试函数。
+    // teardown
+    
+    os.Exit(code)			// 注意：os.Exit 不会执行 defer。
+}
+```
+
+
+
+## 性能测试
+
+有时也称作基准测试。目的是获知算法执行时间，及内存开销。
+
+
+保存在 `_test.go` 文件中。
+函数以 `Benchmark` 为前缀，
+类型 `B` 与 `T` 方法类似，省略。
+
+以 `go test -bench`  执行。
+仅执行性能测试，可用 `-run NONE` 忽略单元测试。
+
+```go
+func BenchmarkAdd(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        add(1, 2)
+    }
+}
+```
+```bash
+$ go test -v -bench . -run None ./mylib
+
+goos: linux
+goarch: amd64
+pkg: test/mylib
+cpu: Intel(R) Core(TM) i5-5257U CPU @ 2.70GHz
+
+BenchmarkAdd
+BenchmarkAdd-2          1000000000               0.3534 ns/op
+
+PASS
+ok      test/mylib      0.417s
+```
+`-bench`：指定要运行的测试。（正则表达式，`-bench` .）
+`-benchtime`：单次测试运行时间或循环次数。（默认 1s，1m20s，100x）
+`-count`：执行几轮测试。（benchtime * count）
+`-cpu`：测试所用 CPU 核心数。（`-cpu 1,2,4` 执行三轮测试）
+`-list`: 列出测试函数，不执行。
+`-benchmem`：显示内存分配（堆）信息。
+
+
+
+```bash
+$ go test -v -run None -bench Add -count 2 ./mylib
+
+BenchmarkAdd-2          1000000000               0.3591 ns/op
+BenchmarkAdd-2          1000000000               0.3588 ns/op
+```
+```bash
+$ go test -v -run None -bench Add -cpu 1,2,4 ./mylib
+
+BenchmarkAdd            1000000000               0.3583 ns/op
+BenchmarkAdd-2          1000000000               0.3594 ns/op
+BenchmarkAdd-4          1000000000               0.3552 ns/op
+```
+
+
+如果执行次数足够多，则 `benchtime` 设置的时长无效。
+对于某些耗时的目标，设置足够长的时间或次数，以便有足够取样获取平均值。
+
+```go
+func BenchmarkSleep(b *testing.B) {
+ 	for i := 0; i < b.N; i++ {
+ 		time.Sleep(time.Second)
+ 	}
+}
+```
+```bash
+$ go test -v -run None -bench Add -benchtime 10s ./mylib
+
+BenchmarkAdd
+BenchmarkAdd-2          1000000000               0.3609 ns/op
+PASS
+ok      test/mylib      0.440s
+
+
+$ go test -v -run None -bench Sleep -benchtime 10s ./mylib
+
+BenchmarkSleep
+BenchmarkSleep-2              10        1003276590 ns/op
+
+PASS
+ok      test/mylib      11.048s
+```
+
+
+
+**内部实现**
+
+内部通过增加循环次数，直到取样（时间或次数上限）足够，以获得最佳平均值。
+
+```go
+func BenchmarkAdd(b *testing.B) {
+	println("b.N = ", b.N)
+
+	for i := 0; i < b.N; i++ {
+		add(1, 2)
+	}
+}
+```
+```bash
+$ go test -v -run None -bench Add ./mylib
+
+BenchmarkAdd
+b.N =  1
+b.N =  100
+b.N =  10000
+b.N =  1000000
+b.N =  100000000
+b.N =  1000000000
+
+BenchmarkAdd-2          1000000000               0.3560 ns/op
+
+PASS
+ok      test/mylib      0.425s
+```
+
+
+
+决定循环次数（`b.N`）的因素，按优先级次序：
+
+手工指定次数（`-benchtime 10x`）。
+内部次数上限（`1e9, 1000000000`）。
+手工指定时长（`-benchtime 10s`）。
+
+另外，性能测试会执行 `runtime.GC` 清理现场，以确保测试结果不受干扰。
+```go
+// benchmark.go
+
+func (b *B) run() {
+	b.doBench()
+}
+
+func (b *B) doBench() BenchmarkResult {
+	go b.launch()
+	<-b.signal
+	return b.result
+}
+
+func (b *B) launch() {
+
+    defer func() {
+		b.signal <- true
+	}()
+
+	// 指定次数。
+	if b.benchTime.n > 0 {
+		if b.benchTime.n > 1 {
+			b.runN(b.benchTime.n)
+		}
+	} else {
+        // 指定时长，默认 1 秒。
+		d := b.benchTime.d
+        
+        // 时间不够，且次数没有超出上限，增加循环次数重来。
+        // 提示，b.duration 由 StopTimer 更新。
+		for n := int64(1); !b.failed && b.duration < d && n < 1e9; {
+			last := n
+            
+			// 重新计算循环次数。
+            n = goalns * prevIters / prevns
+            n += n / 5
+            n = min(n, 100*last)
+            n = max(n, last+1)
+            ...
+            
+            // 次数上限。
+			n = min(n, 1e9)
+
+			b.runN(int(n))
+		}
+	}
+    
+	b.result = BenchmarkResult{b.N, b.duration, ...}
+}
+
+func (b *B) runN(n int) {
+
+    // Try to get a comparable environment for each run
+	// by clearing garbage from previous runs.
+	runtime.GC()
+    
+	b.ResetTimer()
+	b.StartTimer()
+    
+	b.benchFunc(b)   // 测试函数。
+    
+	b.StopTimer()
+}
+```
+```go
+// benchmark.go
+
+func (b *B) StartTimer() {
+	b.start = time.Now()
+}
+
+func (b *B) StopTimer() {
+	b.duration += time.Since(b.start)
+}
+```
+```go
+// benchmark.go
+
+type BenchmarkResult struct {
+	N         int           // The number of iterations.
+	T         time.Duration // The total time taken.
+}
+
+func (r BenchmarkResult) NsPerOp() int64 {
+	return r.T.Nanoseconds() / int64(r.N)
+}
+```
+
+
+
+### 子测试
+
+操作与 `T` 基本一致。但没有 `Parallel`，而是 `RunParallel`。
+
+每次执行都会调用 `runtime.GC` 清理现场，以减少外部干扰，更别说多个子测试并发了。
+
+```go
+func BenchmarkSubs(b *testing.B) {
+	b.Log("setup")
+	b.Cleanup(func(){ b.Log("cleanup") })
+
+	b.Run("A", BenchmarkA)
+	b.Run("B", BenchmarkB)
+	b.Run("C", BenchmarkC)
+}
+```
+```bash
+$ go test -v -run None -bench Subs ./mylib
+
+BenchmarkSubs
+
+    add_test.go:33: setup
+    
+BenchmarkSubs/A
+BenchmarkSubs/A-2              1        1000442000 ns/op
+BenchmarkSubs/B
+BenchmarkSubs/B-2              1        1002897400 ns/op
+BenchmarkSubs/C
+BenchmarkSubs/C-2              1        1003405600 ns/op
+
+    add_test.go:34: cleanup
+    
+PASS
+ok      test/mylib      3.036s
+
+
+$ go test -v -run None -bench Subs/B ./mylib
+
+BenchmarkSubs
+
+    add_test.go:33: setup
+    
+BenchmarkSubs/B
+BenchmarkSubs/B-2              1        1001120200 ns/op
+
+    add_test.go:34: cleanup
+    
+PASS
+ok      test/mylib      1.029s
+```
+
+
+
+**计时器**
+
+计时器默认自动处理。如测试逻辑中有需要排除的因素，可手工调用。
+
+```go
+func BenchmarkTimer(b *testing.B) {
+
+	// setup
+	time.Sleep(time.Second)
+
+	// teardown
+	defer time.Sleep(time.Second)
+
+	// 重置计时器，避免 setup 干扰。
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		add(1, 2)
+	}
+
+	// 停止计时器，避免 teardown 干扰。
+	b.StopTimer()
+}
+```
+
+
+
+### 并行 
+
+方法 `b.RunParallel` 创建多个 goroutine 并发测试单个目标。
+
+
+不能操作计时器。（`StartTimer`、`StopTimer`、`ResetTimer`）
+不能执行子测试。（`Run`）
+
+```go
+func BenchmarkA(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			time.Sleep(time.Microsecond)
+		}
+	})
+ }
+```
+ ```bash
+ $ go test -v -bench . -cpu 1,2,4
+
+=== RUN   TestA
+--- PASS: TestA (0.00s)
+=== RUN   TestA
+--- PASS: TestA (0.00s)
+=== RUN   TestA
+--- PASS: TestA (0.00s)
+
+BenchmarkA
+BenchmarkA         54733             21102 ns/op
+BenchmarkA-2      112624             10242 ns/op
+BenchmarkA-4      108907             10186 ns/op
+
+PASS
+ok      test    3.910s
+ ```
+
+
+
+**内部实现**
+
+将总次数（`b.N`,`bN`）按粒度（`grain`,` ~100µs`）分成多个段。
+每个 goroutine 每次取一个分段执行。如总任务未完成，则再取一个分段。
+
+使用计数器（`cache`）记录当前分段任务内部进度。每次调用 `PB.Next`，计数器递减。
+归零时，将此次分段计入总进度（`globalN`）。检查总进度，判断是否要再取分段。
+
+```go
+|-------------|--------------|-------------|-----//------|
+0      g1            g2             g1           g2      bN
+```
+```go
+type PB struct {
+	globalN *uint64 // 总进度（多个 G 进度相加）。
+	grain   uint64  // 分段粒度。
+	cache   uint64  // 当前分段进度。
+	bN      uint64  // 任务总次数（b.N）
+}
+```
+```go
+// benchmark.go
+
+func (b *B) RunParallel(body func(*PB)) {
+    
+    // 计算分段粒度（~100µs）。
+	grain := uint64(0)
+	if b.previousN > 0 && b.previousDuration > 0 {
+		grain = 1e5 * uint64(b.previousN) / uint64(b.previousDuration)
+	}
+
+	n := uint64(0)
+	numProcs := b.parallelism * runtime.GOMAXPROCS(0)
+    
+	var wg sync.WaitGroup
+	wg.Add(numProcs)
+
+    // 启动多个 G 并发执行任务。
+	for p := 0; p < numProcs; p++ {
+		go func() {
+			defer wg.Done()
+			pb := &PB{
+				globalN: &n,
+				grain:   grain,
+				bN:      uint64(b.N),
+			}
+			body(pb)
+		}()
+	}
+    
+    // 等待。
+	wg.Wait()
+}
+```
+```go
+func (pb *PB) Next() bool {
+    
+    // 刚开始，或当前分段（pb.cache）结束。
+	if pb.cache == 0 {
+        
+        // 累加总进度（pb.globalN）。
+		n := atomic.AddUint64(pb.globalN, pb.grain)
+        
+        // 如果总任务（pb.bN）未结束，则获取下一分段。
+		if n <= pb.bN {
+			pb.cache = pb.grain
+		} else if n < pb.bN+pb.grain {
+			pb.cache = pb.bN + pb.grain - n
+		} else {
+			return false
+		}
+	}
+    
+    // 每次执行，递减当前分段计数。
+	pb.cache--
+    
+	return true
+}
+```
+
+
+
+**内存**
+除执行时间外，还应关注堆内存分配。因为内存分配和垃圾回收都属于重点性能问题。
+
+```go
+func BenchmarkMem(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 1<<20)
+	}
+}
+```
+```bash
+$ go test -v -run None -bench Mem -benchmem ./mylib
+
+BenchmarkMem
+BenchmarkMem-2   3542    288269 ns/op   1048576 B/op   1 allocs/op
+
+PASS
+ok      test/mylib      1.076s
+```
+
+
+
+调用 `ReportAllocs`，无论是否有 `-benchmem` 参数都会输出内存信息。
+
+```go
+
+func BenchmarkMem(b *testing.B) {
+	b.ReportAllocs()
+    
+	for i := 0; i < b.N; i++ {
+		_ = make([]byte, 1<<20)
+	}
+}
+```
+
+
+
+## 模糊测试
+
+又称随机测试，一种基于随机输入发现代码缺陷的自动化测试技术。
+
+对单元测预定数据的补充，查找未预料错误。
+并非验证逻辑正确，而是发现输入处理缺陷。
+
+保存在 `_test.go` 内。
+函数名以 `Fuzz` 为前缀。
+类型 `F` 和 `T` 方法类似，省略。
+
+初始数据，称作 **种子语料**（seed corpus）。
+基于种子构造的随机数据，称作 **随机语料**（random corpus）。
+
+```go
+func FuzzAdd(f *testing.F) {
+    
+    // 添加种子。（可选）
+	f.Add(1, 1)
+	f.Add(1, 2)
+	f.Add(1, 3)
+
+    // 随机测试。（第一参数为 *T，后续和测试目标函数相同）
+	f.Fuzz(func(t *testing.T, x, y int) {
+		add(x, y)
+	})
+}
+```
+
+
+
+默认被当作普通单元测试运行。测试数据就是种子，不会引入随机语料。
+
+```bash
+$ go test -v ./mylib
+
+=== RUN   FuzzAdd
+=== RUN   FuzzAdd/seed#0
+=== RUN   FuzzAdd/seed#1
+=== RUN   FuzzAdd/seed#2
+
+--- PASS: FuzzAdd (0.01s)
+    --- PASS: FuzzAdd/seed#0 (0.00s)
+    --- PASS: FuzzAdd/seed#1 (0.00s)
+    --- PASS: FuzzAdd/seed#2 (0.00s)
+    
+PASS
+ok      test/mylib      0.011s
+```
+
+
+
+只有添加 `-fuzz` 参数才会进行随机测试。
+默认无限期执行，直到失败或被用户中断（`CTRL + C`）。
+
+`-fuzz`: 测试目标。（regex）
+`-fuzztime`: 时长或次数。（`1m20s`, `100x`）
+
+```bash
+$ go test -v -fuzz Add -fuzztime 20s ./mylib
+
+=== FUZZ  FuzzAdd
+
+fuzz: elapsed: 0s, gathering baseline coverage: 0/3 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 3/3 completed, 2 workers
+
+fuzz: elapsed:  3s, execs:  28786 (9594/sec),  new interesting: 0 (total: 3)
+fuzz: elapsed:  6s, execs:  62406 (11205/sec), new interesting: 0 (total: 3)
+fuzz: elapsed:  9s, execs:  93140 (10245/sec), new interesting: 0 (total: 3)
+fuzz: elapsed: 12s, execs: 125159 (10671/sec), new interesting: 0 (total: 3)
+fuzz: elapsed: 15s, execs: 158390 (11079/sec), new interesting: 0 (total: 3)
+fuzz: elapsed: 18s, execs: 191887 (11164/sec), new interesting: 0 (total: 3)
+fuzz: elapsed: 20s, execs: 214470 (10858/sec), new interesting: 0 (total: 3)
+
+--- PASS: FuzzAdd (20.09s)
+PASS
+ok      test/mylib      20.092s
+```
+
+
+
+模糊测试基于 “覆盖引导”（coverage guidance）。
+
+```go
+start with some (potentially empty) corpus of inputs
+
+for {
+    choose a random input from the corpus
+    mutate the input
+    execute the mutated input and collect code coverage
+    if the input gives new coverage, add it to the corpus
+}
+```
+
+
+
+基线覆盖率（baseline coverage）是对现有语料（种子等）的测试结果，提供基准指标。
+执行期间，如某条随机输入导致语料库之外的覆盖率变化，那么可称作 “new interesting”。
+
+`new interesting` 保存在 `GOCACHE/fuzz` 目录下，可被 `go clean -fuzzcache` 清除。
+
+
+`elapsed`：启动时间。
+`execs`：模糊输入总数。
+`new interesting`：引发覆盖率变化的输入数，以及语料库总数。
+
+
+
+引发失败的原因：
+`panic`
+`t.Fail` `...`
+`os.Exit`,` stack overflow` `...`
+目标执行时间过长（默认 1 秒）。
+
+
+
+**语料库**
+
+除在代码中添加种子外，还可以将其存储在文件内，自动载入。
+
+路径：`testdata/fuzz/<FuzzName>/`
+文件：每个文件保存一组语料，也就是一次 `Add` 调用的参数
+
+```bash
+$ cat mylib/testdata/fuzz/FuzzAdd/a
+go test fuzz v1
+int(1)
+int(1)
+
+$ cat mylib/testdata/fuzz/FuzzAdd/b
+go test fuzz v1
+int(1)
+int(2)
+
+$ cat mylib/testdata/fuzz/FuzzAdd/c
+go test fuzz v1
+int(1)
+int(3)
+```
+
+
+
+测试出错时，也会将随机输入存储到该路径下。
+作为回归测试的基准语料，以检查目标是否被修复。
+```bash
+Failing input written to testdata/fuzz/FuzzAdd/3cb146f923...828c
+    To re-run:
+    go test -run=FuzzAdd/3cb146f923...828c
+```
+
+
+
+## 性能监控
+
+
+采集测试或运行数据，分析问题，针对性改进代码。
+
+尽可能排除外在干扰，比如硬件和系统被抢用。
+开启 profile 会导致性能损失。
+不同 profile 可能存在干扰，每次采集一种。
+
+目标类型：
+`cpu`
+`alloc`
+`heap`
+`threadcreate`
+`goroutine`
+`block`
+`mutex`
+
+采样方式：
+测试：`go test -memprofile mem.out`
+在线：`import _ "net/http/pprof"`
+手工：`runtime/pprof`
+
+
+### 测试采样
+```bash
+$ go test -run NONE -bench . -memprofile mem.out net/http
+```
+
+`-cpuprofile`：执行时间。
+`-memprofile`：内存分配。
+`-blockprofile`：阻塞。
+`-mutexprofile`：锁争用。
+
+
+`-memprofilerate`：`runtime.MemProfileRate`
+`-blockprofilerate`：`runtime.SetBlockProfileRate`
+`-mutexprofilefraction`：`runtime.SetMutexProfileFraction`
+
+
+命令行、服务、交互三种模式查看采样结果。
+
+```bash
+$ go tool pprof -top mem.out                  # 命令行参数。
+$ go tool pprof -http 0.0.0.0:8080 mem.out    # 服务。推荐！
+```
+```bash
+$ go tool pprof http.test mem.out             # 交互。
+
+Type: alloc_space
+
+(pprof) top 5
+
+Showing nodes accounting for 4249.95MB, 68.54% of 6200.73MB total
+Dropped 299 nodes (cum <= 31MB)
+Showing top 5 nodes out of 72
+
+      flat  flat%   sum%        cum   cum%
+ 1770.01MB 28.55% 28.55%  1770.01MB 28.55%  net/textproto.(*Reader)...
+  811.70MB 13.09% 41.64%  3086.27MB 49.77%  net/http.readRequest
+  701.10MB 11.31% 52.94%   701.10MB 11.31%  net/http.copyValues
+  497.58MB  8.02% 60.97%   497.58MB  8.02%  net/http.readCookies
+  469.56MB  7.57% 68.54%   469.56MB  7.57%  net/url.parse
+```
+
+
+
+`flat`: 仅当前函数，不包括它调用的其他函数。
+`sum`: 列表前几行所占百分比总和。
+`cum`: 当前函数调用堆栈累计。
+
+找出目标，用 `peek` 命令列出调用来源。
+```bash
+(pprof) peek malg
+Showing nodes accounting for 6200.73MB, 100% of 6200.73MB total
+----------------------------------------------------------+-------------
+      flat  flat%   sum%        cum   cum%   calls calls% + context 	 	 
+----------------------------------------------------------+-------------
+                                            1.50MB   100% |   runtime.newproc1
+    1.50MB 0.024% 0.024%     1.50MB 0.024%                | runtime.malg
+----------------------------------------------------------+-------------
+```
+
+
+也可用 `list` 输出源码行样式，更直观定位。
+```bash
+(pprof) list malg
+
+ROUTINE ======================== runtime.malg in proc.go
+    1.50MB     1.50MB (flat, cum) 0.024% of Total
+         .          .   4029:	execLock.unlock()
+         .          .   4030:}
+         .          .   4031:
+         .          .   4032:// Allocate a new g, with a stack.
+         .          .   4033:func malg(stacksize int32) *g {
+    1.50MB     1.50MB   4034:	newg := new(g)
+         .          .   4035:	if stacksize >= 0 {
+         .          .   4036:		stacksize = round2(_StackSyst...
+         .          .   4037:		systemstack(func() {
+         .          .   4038:			newg.stack = stackalloc(uint...
+         .          .   4039:		})
+
+```
+
+
+
+### 在线采样
+
+向目标程序注入 net/http/pprof 包。
+```go
+package main
+
+import (
+	"net/http"
+	_ "net/http/pprof"
+)
+
+func main() {
+	http.ListenAndServe(":6060", http.DefaultServeMux)
+}
+```
+```bash
+$ go tool pprof http://localhost:6060/debug/pprof/heap
+
+Saved profile in /root/pprof/pprof.objects.space.001.pb.gz
+Type: space
+
+(pprof) top
+
+Showing nodes accounting for 1536.76kB, 100% of 1536.76kB total
+Showing top 10 nodes out of 23
+
+      flat  flat%   sum%        cum   cum%
+  512.50kB 33.35% 33.35%   512.50kB 33.35%  runtime.allocm
+  512.20kB 33.33% 66.68%   512.20kB 33.33%  runtime.malg
+```
+```bash
+$ curl http://localhost:6060/debug/pprof/heap -o mem.out
+$ go tool pprof mem.out
+```
+
+
+
+### 手工采集
+
+在代码中调用相关函数。
+
+```bash
+package main
+
+import (
+	"runtime/pprof"
+	"os"
+)
+
+ func main() {
+ 	pprof.StartCPUProfile(os.Stdout)
+ 	defer pprof.StopCPUProfile()
+
+ 	// ...
+ }
+```
+
+
+
+ ### 执行跟踪
+
+相比 `profile` 采样统计，`trace` 捕获一个时段内的执行事件。
+
+G 如何执行。
+GC 等核心事件。
+不良的并行化。
+
+
+```bash
+$ go test -trace trace.out net/http             # 采样
+$ go tool trace -http 0.0.0.0:8080 trace.out    # 服务
+```
+
+
+
+注入方式，指定采样时长。
+```bash
+$ curl http://localhost:8080/debug/pprof/trace?seconds=5 -o trace.out
+```
+
+
+
+手工方式
+```go
+package main
+
+import (
+	"os"
+	"runtime/trace"
+)
+
+func main() {
+	out, _ := os.Create("trace.out")
+	defer out.Close()
+
+	trace.Start(out)
+	defer trace.Stop()
+
+	test()
+}
+```
+
+
+
+
+
