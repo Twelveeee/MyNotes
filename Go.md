@@ -9316,3 +9316,655 @@ func main() {
 
 // 1
 ```
+
+
+
+
+
+# 包
+
+## 基本信息
+
+包（package）由同一目录下的多个源文件构成。
+
+含 `.go`、`.c`、`.s` 等文件。
+在 `.go` 头部通过 package 定义所属包。
+
+源文件必须是 `UTF-8` 格式。
+
+包是成员作用域边界，包内成员可相互访问。
+名称首字母大写为 **导出成员**（exported），可外部访问。
+
+
+包名可与目录名不同，通常小写单数模式。同一目录下源文件必须使用相同包名。
+```go
+package mylib                  // 包名通常与目录一致。
+
+func ddd(x, y int) int {       // 私有成员。
+	return x + y
+}
+
+func Hello() {                 // 导出成员，可外部访问。
+	println("Hello, World!")
+}
+```
+
+
+
+另有几个特殊含义的包名：
+
+`main`: 用户可执行文件入口包。
+`all`: 所有包，包括标准库和依赖项。
+`std`: 标准库。
+`cmd`: 工具链。
+
+`documentation`: 文档。（工具链忽略，无法导入）
+
+
+为命令行提供包名为参数时，有以下几种方式。
+
+直接提供包名，如标准库。（`go list math`）
+以 . 或 .. 开始的相对路径。（`go build ./mylib`）
+用 ... 作为通配符，表示任意字符串。（`go build ./...`）
+
+提示：`net/...` 表示 `net` 和其所有子包，但不包括 `vendor`。
+除非特别指定，如 `./vendor/...`，`./mylib/vendor/...`。
+
+
+
+#### 访问权限
+
+同一包内不同源文件的成员可相互访问，但只有**首字母大写**为导出成员。
+此规则适用于全局变量、全局常量、函数、类型、字段和方法等。
+
+
+```go
+// test/mylib/add.go
+
+package mylib
+
+func add(x, y int) int {
+	return x + y
+}
+```
+```go
+// test/main.go
+
+package main
+
+import (
+	"test/mylib"
+)
+
+func main() {
+	z := mylib.add(1, 2) // ~ undefined: mylib.add
+	println(z)
+}
+```
+
+
+
+某些时候，需临时访问私有成员，可参考如下手段。
+```go
+// test/mylib/data.go
+
+package mylib
+
+type data struct {
+    x   int
+    y   int
+}
+
+func NewData() *data {
+	return &data{1, 2}
+}
+```
+```go
+package main
+
+import (
+	"fmt"
+	"unsafe"
+	"test/mylib"
+)
+
+func main() {
+	p := mylib.NewData()
+	
+	// p.x = 100 // ~ p.x undefined
+
+	d := (*struct{ 
+		_ int
+		y int              // 仅需要访问的字段
+	})(unsafe.Pointer(p))
+
+	d.y = 100
+	fmt.Println(*d)        // {1, 100}
+}
+```
+
+
+
+还可用别名。
+```go
+// test/mylib/data.go
+package mylib
+type data struct {
+    x   int
+    y   int
+}
+
+func (d *data) test() {
+	println(d.x, d.y)
+}
+
+type DataTmp = data
+
+func (d *DataTmp) SetY(y int) {
+	d.y = y
+}
+
+func (d *DataTmp) Test() {
+	d.test()
+}
+```
+```go
+// test/main.go
+package main
+import (
+	"test/mylib"
+)
+
+func main() {
+	d := mylib.DataTmp{}
+	d.SetY(100)
+	d.Test()
+}
+```
+
+临时提升访问权限，应避免直接修改原目标。
+可将临时代码单独放在`_tmp.go` 文件内，随后直接删除即可。
+
+
+
+#### 初始化
+
+包内任意 `.go` 文件内都可定义一到多个` init` 初始化函数。
+初始化函数由编译器生成代码自动执行（仅执行一次），不能被其他代码调用。
+
+所有初始化函数被编译器整合到一个特殊数据结构内。
+在程序启动初始化阶段，在同一 `goroutine` 内依次执行。
+
+包内全局变量按照依赖关系，逐步初始化（或零值）。
+每个初始化函数只完成一组相关逻辑，且相互之间不应该有执行次序依赖。
+
+自 `1.21` 起，包初始化次序有了正式规范，但依然不建议对其有所依赖。
+
+
+```go
+package main
+
+var x = 100
+
+func init() {
+	println("a", x)  // a 100
+}
+
+func init() {
+	println("b")
+}
+
+func main() {
+	// init() // ~ undefined: init    
+}
+```
+
+
+
+可使用 `GODEBUG` 查看初始化执行情况。
+
+```bash
+$ GODEBUG=inittrace=1 ./test
+
+init internal/bytealg @0.008 ms, 0.008 ms clock, 0 bytes, 0 allocs
+init runtime          @0.040 ms, 0.048 ms clock, 0 bytes, 0 allocs
+init main             @0.31  ms, 0.014 ms clock, 0 bytes, 0 allocs
+
+#    包名             启动时刻     执行耗时         堆内存分配数量和次数。
+```
+
+
+
+#### 内部包
+代码重构时，将一些内部模块陆续分离出来，以独立包形式维护。此时，首字母大小写访问控制就过于粗旷。因为我们希望其 **导出成员** 仅限特定范围内访问，而不是向所有用户公开。
+
+**内部包**（internal package）机制相当于增加了新访问权限控制：
+
+内部包（含自身）只能被其父目录（含所有层次子目录）访问。
+内部包私有成员，依然只能在自己包内访问。
+
+```go
+test/
+  |
+  +-- main.go
+  |
+  +-- mylib/              # 内部包 internal、a、b 的导出成员仅能
+        |                 # 被 mylib、mylib/x、mylib/x/y 访问。
+        |
+        +-- internal/     # 内部包之间可相互访问。
+        |      |          # 可导入外部包。
+        |      +-- a/
+        |      |
+        |      +-- b/
+        |
+        +-- x/
+            |
+            +-- y/
+```
+```go
+package main
+
+import (
+	"test/mylib"
+	"test/mylib/x"
+	"test/mylib/x/y"
+
+	// "test/mylib/internal/a" // ~ use of internal package not allowed
+)
+
+func main() {
+}
+```
+
+
+
+#### 导入
+
+使用包前，须用 import 导入包路径。
+
+导入完整的模块路径（module path），非包名。
+编译器依次搜索标准库、项目根目录，及缓存目录。
+引用包成员，用包名（package），而非导入路径。
+
+默认为 `module` 模式，不支持 `GOPATH` 和 `relative import` 等老旧内容。
+
+```go
+import "net/http"         // $GOROOT/src/net/http
+import "github.com/xxx"   // $GOMODCACHE/github.com/xxx
+```
+
+
+
+使用别名，解决同名冲突问题。
+```go
+import (
+    osx  "osx/lib"     // 为包取别名，而非导入路径。
+    nix  "linux/lib"
+)
+```
+
+
+
+不同导入方式，及其成员引用。
+```go
+import (
+       "math"     默认: math.Sin
+    m  "math"     别名: m.Sin
+    .  "math"     简便: Sin
+    _  "math"     初始化: 无法引用，仅用来初始化目标包。
+)
+```
+
+
+
+简便：相当于 `from math import *`。 （常用于单元测试中）
+初始化：目的是让目标包的初始化函数得以执行，而非引用其成员。
+不能直接或间接导入自己，不支持任何形式的循环导入。
+
+未使用的导入（不包括初始化方式）被编译器视为错误。
+
+```go
+package main
+
+import (
+    "fmt" // ~ imported and not used: "fmt"
+)
+
+func main() {
+}
+```
+
+
+
+## 模块
+
+模块（module）是包（packages）和其依赖项（dependency）的集合。
+
+直接体现是 `go.mod` 文件，存储了模块路径、编译器版本，以及依赖项列表。
+如此，模块是依赖管理方式，是发布和版本控制单元。
+
+```go
+module = go.mod + package + subs...
+```
+
+模块路径（module path）：在 `go.mod` 中声明的名称标识。
+根目录（module root directory）：包含 `go.mod` 文件的目录。
+主模块（main module）：执行 `go` 命令时，所在目录对应的模块。
+
+
+
+#### 初始化
+模块对应一个包含 `go.mod` 的源码目录，所有不含 `go.mod` 的子目录都是其成员。
+```bash
+  test/
+    |
+    +-- go.mod        (github.com/twelveeee/test)
+    |
+    +-- main.go
+    |
+    +-- mylib/        (github.com/twelveeee/test/mylib)
+          |
+          +-- add.go
+```
+```bash
+$ cd test
+
+$ go mod init github.com/twelveeee/test
+go: creating new go.mod: module github.com/twelveeee/test
+```
+```bash
+$ cd test/mylib
+
+$ go list -m                     # 向外查找 go.mod，主模块。
+github.com/twelveeee/test
+```
+
+
+
+模块路径描述了线上存储位置，通过 go get 下载到本地缓存目录。
+以 import 导入模块时，使用模块路径而非本地路径。
+
+```go
+// go.mod
+
+module github.com/twelveeee/test    // 模块路径
+
+go 1.18                          // 编译器最低版本号
+```
+```go
+// main.go
+
+package main
+
+import (
+    // "test/mylib" // ~ package test/mylib is not in GOROOT
+    
+	"github.com/twelveeee/test/mylib"
+)
+
+func main() {
+	println(mylib.Add(1, 22))
+}
+```
+
+
+
+如果子目录包含 go.mod，那么它将是独立模块，不再属于当前模块。
+
+```go
+$ cd test/mylib
+
+$ go mod init github.com/twelveeee/mylib
+go: creating new go.mod: module github.com/twelveeee/mylib
+
+$ cd ..
+
+$ go build
+no required module provides package github.com/twelveeee/test/mylib; 
+to add it: go get github.com/twelveeee/test/mylib
+```
+
+
+
+#### 依赖管理
+
+命令 `go get` 添加、下载（更新）依赖项，其他操作可用 `go mod` 完成。
+
+从 `GOPROXY` 下载源码到本地缓存 `GOMODCACHE` 目录。
+向 `go.mod`、`go.sum` 添加依赖项和验证信息。
+使用 `go clean -modcache` 清除缓存。（自动重新下载）
+
+```bash
+$ go get .                        # 分析源码，添加所有依赖。
+$ go get example.com/my           # 指定模块，下载最新版本。
+
+$ go get example.com/my@v1.3.4    # 指定版本号。
+$ go get example.com/my@lastet    # 最新版本。
+
+$ go get example.com/my@4cf76c2   # 伪版本号（commit hash）
+$ go get example.com/my@bufix     # 分支（branch）
+```
+
+
+
+用 go mod 管理模块。
+
+`init`: 初始化模块，创建 `go.mod` 文件。
+`tidy`: 添加遗漏，移除不需要的依赖项。
+
+`edit`: 命令行方式编辑模块设置。
+`-fmt`：格式化 `go.mod` 文件。
+`-module`：模块路径。
+`-go`：编译器版本。
+`-require`,` -droprequire`：添加直接或间接依赖项。
+`-replace`,` -dropreplace`：替换模块路径或版本。
+`-exclude`,` -dropexclude`：排除模块或版本。
+`-retract`,` -dropretract`：标识有问题需要忽略的版本。
+
+
+
+#### 版本标识
+
+版本标识模块不可变快照。
+
+以 `v` 开头，然后是语义版本（semantic version）。
+
+不兼容（incompatible）更新，递增主要版本号。
+添加功能的兼容更新，递增次要版本号。
+优化和修复缺陷，不影响导出接口，递增补丁版本号。
+正式发布前的预发行版本，添加 `-pre` 后缀。
+
+使用 `git tag` 之类的功能标记语义化版本号。
+如没有标记，则使用提交（commit）信息（time, ident）构成伪版本号。
+
+```go
+v(major).(minor).(patch)-(pre|beta)
+
+  主要     次要     补丁    预发行或测试版
+```
+```go
+v1.2.3
+v1.2.3-pre
+v1.5.0-beta
+
+v0.0.0-20191109021931-daa7c04131f5 --> go get example.com/my@daa7c041
+```
+
+
+
+查看所有版本。
+```bash
+$ go list -m -versions github.com/shirou/gopsutil
+
+v2.0.0+incompatible 
+v2.16.10+incompatible 
+v2.16.11+incompatible ...
+v2.21.11+incompatible 
+v3.20.10+incompatible ... 
+v3.21.11+incompatible
+```
+```bash
+$ go list -m -versions all   
+```
+
+
+
+更新依赖项。
+
+```bash
+$ go get -u example.com/my@v1.3          # minor or patch releases
+$ go get -u=patch example.com/my@v1.3.4  # patch release
+```
+
+
+
+可使用 `>`、`>=`、`<`、`<=` 操作符指定版本查询范围（module query）。
+
+选择最接近条件的版本。例如：`>=1.0` 选择 `1.0`，`<1.0` 选择 `0.9`，而不是 `0.8`。
+注意，命令行添加引号，否则显示版本错误。
+```bash
+$ go get "github.com/shirou/gopsutil@>v2.16.10"
+```
+
+
+
+**兼容性规则**
+
+如新版和旧版有相同导入路径，则必须保证向后兼容（backwards compatible）。
+主版本号出现在模块路径尾部，表示重大不兼容更新。
+
+`mod/v2` 和 `mod/v1` 不兼容。
+`v0` 和` v1` 不需要使用版本后缀。
+`v0` 本身就表示不稳定且不具有兼容性保证，`v1` 为默认版本。
+另外，有预发行后缀也表示该版本不稳定，不受兼容性约束。
+
+导入语句（import）须使用包含版本号（`v2`）的全路径。
+通常建议在原模块下建立 `/v2/go.mod` 模块（子目录）。
+
+```go
+import github.com/twelveeee/test/v2
+```
+
+
+
+#### 工作空间
+
+以工作空间（workspace）解决多模块开发遇到的问题。
+
+编译时，找不到未发布模块（非子包）。
+只能以 `replace` 将模块路径替换为本地路径。
+污染的 `go.mod` 意外提交到代码仓库。
+
+```bash
+
+   app/                  (workspace)
+    |
+    +-- go.work
+    |
+    +-- test/            (github.com/twelveeee/test)
+    |    |
+    |    +-- go.mod
+    |    |
+    |    +-- main.go
+    |
+    +-- mylib/           (github.com/twelveeee/mylib)
+         |
+         +-- go.mod
+         |
+         +-- add.go
+
+```
+```bash
+$ go work init                   # 初始化工作空间。
+$ go work use ./test ./mylib     # 添加模块。
+```
+```go
+// go.work
+
+go 1.18
+
+use (
+    ./mylib
+    ./test
+)
+```
+
+
+
+导入（import）工作空间内其他模块，无需 require 指令。
+```go
+// mylib/go.mod
+
+module github.com/qyuhen/mylib
+
+go 1.18
+```
+```go
+// test/go.mod
+
+module github.com/qyuhen/test
+
+go 1.18
+
+// require github.com/qyuhen/mylib v0.0.1   // 不需要
+```
+```go
+// test/main.go
+
+package main
+
+import (
+	"github.com/qyuhen/mylib"
+)
+
+func main() {
+	println(mylib.Add(11, 22))
+}
+```
+
+
+
+若必须添加 require，编译时可关闭 GOPROXY，阻止在线获取模块验证信息。
+```bash
+ GOPROXY=off go build
+```
+
+
+
+模块还可放在空间目录外，或加入多个工作空间。
+```go
+// go.work
+
+go 1.18
+
+use (
+	../mylib
+	./test
+)
+```
+
+
+
+#### 环境变量
+
+模块感知（module-aware）模式，相关环境变量说明。
+
+`GO111MODULE`：模块感知模式开关。（默认：on）
+`GOMODCACHE`：模块缓存路径。
+`GOPROXY`：模块代理服务列表。
+`GOSUMDB`：模块数据安全校验数据库。
+`GOPRIVATE`：私有模块路径，绕过 GOPROXY 直接获取。
+
+`GOPRIVATE=*.example.com`，以逗号分隔多个地址。
+`GOPRIVATE` 是 `GONOPROXY`、`GONOSUMDB` 的默认值。
+
+
+
+#### 离线编译
+打包含依赖在内的所有源码，进行离线编译。
+
+```bash
+$ go mod vendor                    # 将依赖复制到 ./vendor 目录下。
+$ GOWORK=off go build -mod vendor  # 禁用工作空间，以 vendor 方式编译。
+```
+
